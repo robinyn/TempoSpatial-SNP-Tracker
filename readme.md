@@ -6,12 +6,23 @@ In this project, an R-shiny application that allows users to input plink files a
 
 Four data files were provided:
    
-    DataS1.bed
+    - DataS1.bed
+    - DataS1.bim
+    - DataS1.fam
+    - DataS1.xlsx (Eurasian - Dataset_tims.xlsx)
 
-    DataS1.bim
+The name of the excel file "Eurasian-Dataset_tims" was changed to DataS1.xlsx for consistency with the other data files. 
 
-    DataS1.fam
+### Data preprocessing
 
-    Eurasian - Dataset_tims.xlsx
+For the purposes of this project, the majority of the columns in the excel file was not needed. Therefore, the following columns were removed:
+
+    - Ancient/Modern components
+    - Age at death estimage
+    - Converge on autosomal targets
+    - SNPs hit on autosomal targets
+    - Mean length of shotgun sequences
+    - Family ID and position within family
+    - Y/mtDNA data
 
 
