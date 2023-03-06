@@ -40,7 +40,7 @@ For the purposes of this project, the majority of the columns in the excel file 
 Due to compatibility issues with the Plink software, this part of the preprocessing had to be conducted on the course server. In order to extract the SNP data from the three plink files (DataS1.bed/.bim/.fam), the files were uploaded to the server and the following commands were used in the same directory as the data files:
 
 ```shell
-plink --bfile DataS1 --recode --out DataS1
+plink --bfile DataS1 --recode compound-genotype --out DataS1
 ```
 
 The resulting uncompressed plink files were downloaded to the local machine.  
