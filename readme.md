@@ -5,9 +5,13 @@ In this project, an R-shiny application that allows users to input plink files a
 ## Data
 
 Four data files were provided:
+   
     DataS1.bed
+
     DataS1.bim
+
     DataS1.fam
+
     Eurasian - Dataset_tims.xlsx
 
 
