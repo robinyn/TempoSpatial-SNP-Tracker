@@ -2,6 +2,7 @@ library(tidyverse)
 library(readxl)
 library(leaflet)
 library(RSQLite)
+library(leaflet.minicharts)
 
 setwd("~/Dev/school/BINP29/popgen")
 
@@ -13,7 +14,7 @@ time_range = as.numeric(dbFetch(res))
 
 dbClearResult(res)
 
-timestep = 500
+timestep = 1000
 SNP_ID = c("rs3094315", "rs6696609")
 twoSNPs = FALSE
 
@@ -60,7 +61,31 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
     
     plot_dat = plot_dat[plot_dat$SNP1!="00",]
     
-    print(m %>% addCircleMarkers(lng=as.numeric(plot_dat$Long), lat=as.numeric(plot_dat$Lat), color=as.factor(plot_dat$SNP1)))
+    if(nrow(plot_dat)==0){
+      next
+    }
+    
+    country_cords = plot_dat %>% 
+      group_by(Country) %>% 
+      select(Long, Lat, Country)
+    
+    country_cords = country_cords[!duplicated(country_cords$Country),]
+    
+    chart_dat = plot_dat %>% 
+      group_by(Country, SNP1) %>% 
+      tally() %>% 
+      pivot_wider(names_from=SNP1, values_from=n) %>% 
+      replace(is.na(.), 0)
+    
+    chart_dat = merge(chart_dat, country_cords, by="Country")
+    
+    print(m %>% addMinicharts(
+      lng=chart_dat$Long, lat=chart_dat$Lat,
+      type="pie",
+      chartdata=chart_dat[, !(colnames(chart_dat) %in% c("Country", "Lat", "Long"))]
+    ))
+    
+    #print(m %>% addCircleMarkers(lng=as.numeric(plot_dat$Long), lat=as.numeric(plot_dat$Lat), color=as.factor(plot_dat$SNP1)))
   }else{
     print(m)
   }
