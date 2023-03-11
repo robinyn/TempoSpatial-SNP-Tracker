@@ -1,5 +1,14 @@
-#import pandas
-#time_dat = pandas.read_excel("~/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.xlsx")
+import pandas
+
+def readExcel(excel_file, sample_list):
+    time_dat = pandas.read_excel(excel_file)
+    time_dat = time_dat.drop_duplicates(subset=["MasterID"])
+    time_dat = time_dat.drop(columns="Index")
+    sample_list = [x[0] for x in sample_list]
+    criteria = time_dat["MasterID"].map(lambda x: x in sample_list)
+    time_dat = time_dat[criteria]
+    time_dat.replace("..", "NA")
+    time_dat.to_csv('Sample_Metadata.tsv', sep='\t', index=False)
 
 def readPlink(ped_file, map_file):
     SNP_list = []
@@ -47,13 +56,15 @@ def readPlink(ped_file, map_file):
             SNP_file.write("SNP_ID\tCHR\tREF\tALT\n")
             for snp in SNP_list:
                 SNP_file.write("\t".join(snp)+"\n")
-
     except Exception as e:
         print(e)
 
+    return sample_list
 
 ped_file = "/Users/robinhan/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.ped"
 map_file = "/Users/robinhan/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.map"
-gcount_file = "/Users/robinhan/Dev/school/BINP29/popgen/plink2.gcount"
-readPlink(ped_file, map_file)
+gcount_file = "/Users/robinhan/Dev/school/BINP29/popgen/0_data/uncompressed/plink2.gcount"
+excel_file = "~/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.xlsx"
 
+sample_list = readPlink(ped_file, map_file)
+readExcel(excel_file, sample_list)
