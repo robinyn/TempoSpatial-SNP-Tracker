@@ -14,12 +14,12 @@ time_range = as.numeric(dbFetch(res))
 dbClearResult(res)
 
 timestep = 1000
-SNP_ID = "rs3094315"
+SNP_ID = c("rs3094315", "rs6696609")
 
-# m = leaflet() %>% 
-#   addTiles() %>% 
-#   setView(20, 30, zoom = 2)
-# print(m)
+m = leaflet() %>%
+  addTiles() %>%
+  setView(20, 30, zoom = 2)
+print(m)
 
 for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
   end_time = start_time-timestep
@@ -29,17 +29,28 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
   dbClearResult(res)
   
   if(nrow(samples_to_plot)>0){
-    sample_list = paste0(sprintf("'%s'", samples_to_plot$MasterID), collapse=",")
+    sample_list = paste0(sprintf("`%s`", samples_to_plot$MasterID), collapse=",")
     
-    print(sample_list)
-    
-    query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, SNP_ID)
+    query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, SNP_ID[1])
     res = dbSendQuery(db, query)
     SNP_dat = dbFetch(res)
     dbClearResult(res)
     
-    #print(SNP_dat) 
+    SNP1 = SNP_dat[1,]
+    SNP2 = SNP_dat[2,]
+    
+    SNP1 = SNP1 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
+    SNP2 = SNP2 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP2")
+    
+    plot_dat = merge(samples_to_plot, SNP1, by="MasterID") %>% 
+      merge(SNP2, by="MasterID")
+    
+    plot_dat = plot_dat[plot_dat$SNP1!="00",]
+    
+    print(m %>% addCircleMarkers(lng=as.numeric(plot_dat$Long), lat=as.numeric(plot_dat$Lat), color=as.factor(plot_dat$SNP1)))
   }
+  
+  Sys.sleep(2)
 }
 
 dbDisconnect(db)
