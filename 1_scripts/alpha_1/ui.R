@@ -12,11 +12,11 @@ ui = navbarPage(
            leafletOutput("map"),
            sliderTextInput(
              "animation", "Year:",
-             choices = seq(from=time_range[1], to=time_range[2], by=-timestep),
+             choices = seq(from=time_range[1], to=time_range[2]+timestep, by=-timestep),
              selected = time_range[1],
              width="100%",
              post=" BP",
              animate=animationOptions(interval=-timestep, loop=TRUE)
            )),
-  tabPanel(title="Data explorer", value="pan2")
+  tabPanel(title="Data explorer", value="pan2"),
 )

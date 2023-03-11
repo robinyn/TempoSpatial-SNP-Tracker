@@ -4,9 +4,9 @@ library(tidyverse)
 library(leaflet)
 library(leaflet.minicharts)
 library(readxl)
+library(RSQLite)
 
 setwd("~/Dev/school/BINP29/popgen")
-
 db = dbConnect(SQLite(), "0_data/popgen_SNP.sqlite")
 res = dbSendQuery(db, "SELECT MAX(CAST(DateMean AS INTEGER)), MIN(CAST(DateMean AS INTEGER)) FROM sample_meta")
 time_range = as.numeric(dbFetch(res))
@@ -53,6 +53,28 @@ server = function(input, output){
         plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
       }
       plot_dat = plot_dat[plot_dat$SNP1!="00",]
+      
+      country_cords = plot_dat %>% 
+        group_by(Country) %>% 
+        select(Long, Lat, Country)
+      
+      country_cords = country_cords[!duplicated(country_cords$Country),]
+      
+      chart_dat = plot_dat %>% 
+        group_by(Country, SNP1) %>% 
+        tally() %>% 
+        pivot_wider(names_from=SNP1, values_from=n) %>% 
+        replace(is.na(.), 0)
+      
+      chart_dat = merge(chart_dat, country_cords, by="Country")
+      
+      if(nrow(chart_dat)==0){
+        return(NULL)
+      }else{
+        return(chart_dat)
+      }
+    }else{
+      return(NULL)
     }
   })
   
@@ -64,8 +86,17 @@ server = function(input, output){
   
   observe({
     subset_dat = filteredData()
-    leafletProxy("map") %>% 
-      clearShapes() %>% 
-      addCircles(lng=as.numeric(subset_dat$Long), lat=as.numeric(subset_dat$Lat), radius=5, fillOpacity=0.2)
+    if(!is.null(subset_dat)){
+      leafletProxy("map") %>% 
+        clearMinicharts() %>% 
+        addMinicharts(
+          lng=subset_dat$Long, lat=subset_dat$Lat,
+          type="pie",
+          chartdata=subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long"))]
+        )
+    }else{
+      leafletProxy("map") %>% 
+        clearMinicharts()
+    }
   })
 }
