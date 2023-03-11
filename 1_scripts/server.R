@@ -7,34 +7,53 @@ library(readxl)
 
 setwd("~/Dev/school/BINP29/popgen")
 
-time_dat = read_excel("0_data/uncompressed/DataS1.xlsx")
-SNP_dat = read.delim("temp/subset_3/DataS1_subset.ped", sep=" ", header=FALSE)
+db = dbConnect(SQLite(), "0_data/popgen_SNP.sqlite")
+res = dbSendQuery(db, "SELECT MAX(CAST(DateMean AS INTEGER)), MIN(CAST(DateMean AS INTEGER)) FROM sample_meta")
+time_range = as.numeric(dbFetch(res))
+dbClearResult(res)
 
-SNP_dat = SNP_dat %>% 
-  select(-c(V3,V4))
-
-colnames(SNP_dat) = c("CountryID", "SampleID", "Sex", "Phenotype", paste("SNP",seq(1:(ncol(SNP_dat)-4)),sep=""))
-
-time_dat = time_dat[!duplicated(time_dat$MasterID),]
-
-time_dat = time_dat[time_dat$MasterID %in% SNP_dat$SampleID,]
-SNP_dat = SNP_dat[SNP_dat$SampleID %in% time_dat$MasterID,]
-
-time_dat = time_dat[order(time_dat$MasterID),]
-SNP_dat = SNP_dat[order(SNP_dat$SampleID),]
-
-SNP_dat = as.data.frame(append(SNP_dat, list(time_dat$DateMean, time_dat$Lat, time_dat$Long), after=4))
-colnames(SNP_dat) = c("CountryID", "SampleID", "Sex", "Phenotype", "DateMean", "Lat", "Long", paste("SNP",seq(1:(ncol(SNP_dat)-7)),sep=""))
-
-start_time = max(SNP_dat$DateMean)
-end_time = min(SNP_dat$DateMean)
-time_step = 500
+timestep = 500
+SNP_ID = c("rs3094315", "rs6696609")
+twoSNPs = FALSE
 
 server = function(input, output){
   filteredData = reactive({
-    from = input$animation
-    till = input$animation-time_step
-    SNP_dat %>% filter(DateMean<=from & DateMean>=till)
+    start_time = input$animation
+    end_time = input$animation-timestep
+    query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta WHERE CAST(DateMean AS INTEGER) <= %s AND CAST(DateMean AS INTEGER) >=%s", start_time, end_time)
+    res = dbSendQuery(db, query)
+    samples_to_plot = dbFetch(res)
+    dbClearResult(res)
+    
+    if(nrow(samples_to_plot)>0){
+      sample_list = paste0(sprintf("`%s`", samples_to_plot$MasterID), collapse=",")
+      
+      if(twoSNPs){
+        query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s' AND SNP_ID='%s'", sample_list, SNP_ID[1], SNP_ID[2])
+        res = dbSendQuery(db, query)
+        SNP_dat = dbFetch(res)
+        dbClearResult(res)
+        
+        SNP1 = SNP_dat[1,]
+        SNP2 = SNP_dat[2,] 
+        
+        SNP1 = SNP1 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
+        SNP2 = SNP2 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP2")
+        
+        plot_dat = merge(samples_to_plot, SNP1, by="MasterID") %>% 
+          merge(SNP2, by="MasterID")
+      }else{
+        query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, SNP_ID[1])
+        res = dbSendQuery(db, query)
+        SNP_dat = dbFetch(res)
+        dbClearResult(res) 
+        
+        SNP_dat = SNP_dat %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
+        
+        plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
+      }
+      plot_dat = plot_dat[plot_dat$SNP1!="00",]
+    }
   })
   
   output$map=renderLeaflet(
