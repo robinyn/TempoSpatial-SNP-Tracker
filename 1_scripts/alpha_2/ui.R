@@ -42,7 +42,7 @@ navbarPage("SNP Tracker", id="navbar",
                                         sliderInput("timestep", label="Time step", min=100, max=5000, value=time_step, step=100, ticks=TRUE),
                                         
                                         sliderTextInput("timeline", label="Timeline", 
-                                                        choices = seq(from=time_range[1], to=time_range[2]+time_step, by=-time_step),
+                                                        choices = seq(from=time_range[1], to=time_range[2], by=-time_step),
                                                         selected = time_range[1],
                                                         width="100%",
                                                         post=" BP",
