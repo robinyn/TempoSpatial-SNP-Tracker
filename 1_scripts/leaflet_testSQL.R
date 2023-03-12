@@ -49,12 +49,13 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
         merge(SNP2, by="MasterID")
       
       # Transform for two SNPs count data
-      plot_dat = plot_dat %>% 
-        pivot_longer(-c(Long, Lat, MasterID, Country)) %>% 
-        count(Long, Lat, name, value) %>% 
-        pivot_wider(names_from = c(name, value), values_from = n) %>% 
-        replace(is.na(.), 0)
-      
+      plot_dat = plot_dat %>%
+        pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
+        count(Long, Lat, name, value) %>%
+        pivot_wider(names_from = c(name, value), values_from = n) %>%
+        replace(is.na(.), 0) %>% 
+        relocate(sort(names(.)))
+
       # plot_dat = plot_dat %>%
       #   group_by(Lat, Long, SNP1, SNP2) %>%
       #   tally() %>%
