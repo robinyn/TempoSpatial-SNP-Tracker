@@ -16,7 +16,7 @@ dbClearResult(res)
 
 timestep = 1000
 SNP_ID = c("rs3094315", "rs6696609")
-twoSNPs = FALSE
+twoSNPs = TRUE
 
 m = leaflet() %>%
   addTiles() %>%
@@ -34,7 +34,7 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
     sample_list = paste0(sprintf("`%s`", samples_to_plot$MasterID), collapse=",")
     
     if(twoSNPs){
-      query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s' AND SNP_ID='%s'", sample_list, SNP_ID[1], SNP_ID[2])
+      query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s' OR SNP_ID='%s'", sample_list, SNP_ID[1], SNP_ID[2])
       res = dbSendQuery(db, query)
       SNP_dat = dbFetch(res)
       dbClearResult(res)
@@ -47,6 +47,21 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
       
       plot_dat = merge(samples_to_plot, SNP1, by="MasterID") %>% 
         merge(SNP2, by="MasterID")
+      
+      # Transform for two SNPs count data
+      plot_dat = plot_dat %>% 
+        pivot_longer(-c(Long, Lat, MasterID, Country)) %>% 
+        count(Long, Lat, name, value) %>% 
+        pivot_wider(names_from = c(name, value), values_from = n) %>% 
+        replace(is.na(.), 0)
+      
+      # plot_dat = plot_dat %>%
+      #   group_by(Lat, Long, SNP1, SNP2) %>%
+      #   tally() %>%
+      #   pivot_wider(names_from=c(SNP1, SNP2), values_from=n) %>%
+      #   replace(is.na(.), 0)
+      
+      print(plot_dat)
     }else{
       query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, SNP_ID[1])
       res = dbSendQuery(db, query)
@@ -57,32 +72,18 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
       
       plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
     }
-    print(SNP_dat)
+    #print(SNP_dat)
     
-    plot_dat = plot_dat[plot_dat$SNP1!="00",]
+    #plot_dat = plot_dat[plot_dat$SNP1!="00",]
     
     if(nrow(plot_dat)==0){
       next
     }
-    
-    country_cords = plot_dat %>% 
-      group_by(Country) %>% 
-      select(Long, Lat, Country)
-    
-    country_cords = country_cords[!duplicated(country_cords$Country),]
-    
-    chart_dat = plot_dat %>% 
-      group_by(Country, SNP1) %>% 
-      tally() %>% 
-      pivot_wider(names_from=SNP1, values_from=n) %>% 
-      replace(is.na(.), 0)
-    
-    chart_dat = merge(chart_dat, country_cords, by="Country")
-    
+
     print(m %>% addMinicharts(
-      lng=chart_dat$Long, lat=chart_dat$Lat,
+      lng=plot_dat$Long, lat=plot_dat$Lat,
       type="pie",
-      chartdata=chart_dat[, !(colnames(chart_dat) %in% c("Country", "Lat", "Long"))]
+      chartdata=plot_dat[, !(colnames(plot_dat) %in% c("Country", "Lat", "Long"))]
     ))
     
     #print(m %>% addCircleMarkers(lng=as.numeric(plot_dat$Long), lat=as.numeric(plot_dat$Lat), color=as.factor(plot_dat$SNP1)))
