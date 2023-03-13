@@ -18,15 +18,66 @@ res = dbSendQuery(db, "SELECT * FROM country_cords")
 country_list = dbFetch(res)
 dbClearResult(res)
 
+res = dbSendQuery(db, "SELECT * FROM distM")
+distM = dbFetch(res)
+dbClearResult(res)
+
 timestep = 500
 SNP_ID = c("rs3094315", "rs6696609")
 twoSNPs = TRUE
-groupby = "country"
+groupby = "distance"
+dist_threshold = 1000
 
 m = leaflet() %>%
   addTiles() %>%
   setView(20, 30, zoom = 2)
 print(m)
+
+dist_Matrix = function(dat){
+  sample_dist= dat %>% 
+    expand(MasterID, MasterID) %>% 
+    rename("ID1"="MasterID...1", "ID2"="MasterID...2") %>% 
+    left_join(distM, by=c("ID1"="id1", "ID2"="id2")) %>% 
+    pivot_wider(everything(), names_from =ID2, values_from = dist) %>% 
+    column_to_rownames(var ="ID1")
+  
+  rnames = rownames(sample_dist)
+  
+  sample_dist %>% 
+    sapply(as.numeric) %>% 
+    data.matrix
+  
+  rownames(sample_dist) = rnames
+  
+  return(sample_dist)
+}
+
+cluster_Samples = function(dat){
+  if(nrow(dat)>1){
+    distances = dist_Matrix(dat)
+    cluster_tree = hclust(as.dist(distances))
+    clusters = cutree(cluster_tree, h=dist_threshold*1000)
+    
+    clusters = clusters %>% 
+      as.list() %>% 
+      data.frame() %>% 
+      pivot_longer(everything(), names_to = "MasterID", values_to = "Cluster")
+    
+    dat = dat %>% 
+      merge(clusters, by="MasterID")
+    
+    print(dat)
+    
+  }else{
+    dat$Cluster = 1
+  }
+  
+  return(dat)
+}
+
+calc_Centroid = function(dat){
+  
+}
 
 for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
   end_time = start_time-timestep
@@ -111,6 +162,7 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
              print(plot_dat)
            },
            "distance"={
+             plot_dat = cluster_Samples(plot_dat)
              
            },
            "testing"={
@@ -121,7 +173,7 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
     print(m %>% addMinicharts(
       lng=plot_dat$Long, lat=plot_dat$Lat,
       type="pie",
-      chartdata=plot_dat[, !(colnames(plot_dat) %in% c("Country", "Lat", "Long"))]
+      chartdata=plot_dat[, !(colnames(plot_dat) %in% c("Country", "Lat", "Long", "MasterID"))]
     ))
     
     #print(m %>% addCircleMarkers(lng=as.numeric(plot_dat$Long), lat=as.numeric(plot_dat$Lat), color=as.factor(plot_dat$SNP1)))

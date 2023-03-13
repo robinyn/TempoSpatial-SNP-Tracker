@@ -111,7 +111,6 @@ server = function(input, output, session){
       
       plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
       plot_dat = plot_dat[plot_dat$SNP1!="00",]
-      
     }
     
     switch(input$grouping_var,
