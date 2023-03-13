@@ -16,6 +16,7 @@ server = function(input, output, session){
     }
   })
   
+  # Server-wise global reactive variable for distance threshold for clustering
   dist_threshold = reactive({
     as.numeric(input$group_dist_input)
   })
