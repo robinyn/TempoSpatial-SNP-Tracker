@@ -76,7 +76,37 @@ cluster_Samples = function(dat){
 }
 
 calc_Centroid = function(dat){
+  if(nrow(dat)==1){
+    cluster_centroids = data.frame(matrix(NA, nrow=1,ncol=3))
+    colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
+    
+    cluster_centroids$Cluster = 1
+    cluster_centroids$Lat = dat$Lat
+    cluster_centroids$Long = dat$Long
+    
+    return(cluster_centroids)
+  }
   
+  cluster_groups = dat %>% 
+    group_by(Cluster, Lat, Long) %>% 
+    summarise() %>% 
+    sapply(as.numeric) %>% 
+    data.frame()
+  
+  cluster_centroids = data.frame(matrix(NA, nrow=length(unique(cluster_groups$Cluster)),ncol=3))
+  colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
+  
+  cluster_centroids$Cluster = unique(cluster_groups$Cluster)
+  
+  for(cluster in unique(cluster_groups$Cluster)){
+    lat_c = sum(cluster_groups$Lat[cluster_groups$Cluster==cluster])/length(cluster_groups$Lat[cluster_groups$Cluster==cluster])
+    long_c = sum(cluster_groups$Long[cluster_groups$Cluster==cluster])/length(cluster_groups$Long[cluster_groups$Cluster==cluster])
+    
+    cluster_centroids$Lat[cluster_centroids$Cluster==cluster] = lat_c
+    cluster_centroids$Long[cluster_centroids$Cluster==cluster] = long_c
+  }
+  
+  return(cluster_centroids)
 }
 
 for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
@@ -163,7 +193,16 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
            },
            "distance"={
              plot_dat = cluster_Samples(plot_dat)
+             centroids = calc_Centroid(plot_dat)
              
+             plot_dat = plot_dat %>% 
+               select(-c(MasterID, Long, Lat, Country)) %>% 
+               pivot_longer(-c(Cluster)) %>% 
+               count(Cluster, name, value) %>% 
+               pivot_wider(names_from = c(name, value), values_from = n) %>%
+               replace(is.na(.), 0) %>% 
+               relocate(sort(names(.))) %>% 
+               merge(centroids, by="Cluster")
            },
            "testing"={
              print(plot_dat)
@@ -173,7 +212,7 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
     print(m %>% addMinicharts(
       lng=plot_dat$Long, lat=plot_dat$Lat,
       type="pie",
-      chartdata=plot_dat[, !(colnames(plot_dat) %in% c("Country", "Lat", "Long", "MasterID"))]
+      chartdata=plot_dat[, !(colnames(plot_dat) %in% c("Country", "Lat", "Long", "MasterID", "Cluster"))]
     ))
     
     #print(m %>% addCircleMarkers(lng=as.numeric(plot_dat$Long), lat=as.numeric(plot_dat$Lat), color=as.factor(plot_dat$SNP1)))
