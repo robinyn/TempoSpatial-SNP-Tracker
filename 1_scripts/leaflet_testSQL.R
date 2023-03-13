@@ -17,6 +17,7 @@ dbClearResult(res)
 timestep = 1000
 SNP_ID = c("rs3094315", "rs6696609")
 twoSNPs = TRUE
+groupby = "testing"
 
 m = leaflet() %>%
   addTiles() %>%
@@ -49,12 +50,32 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
         merge(SNP2, by="MasterID")
       
       # Transform for two SNPs count data
-      plot_dat = plot_dat %>%
-        pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
-        count(Long, Lat, name, value) %>%
-        pivot_wider(names_from = c(name, value), values_from = n) %>%
-        replace(is.na(.), 0) %>% 
-        relocate(sort(names(.)))
+      switch(groupby,
+             "none"={
+               plot_dat = plot_dat %>%
+                 pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
+                 count(Long, Lat, name, value) %>%
+                 pivot_wider(names_from = c(name, value), values_from = n) %>%
+                 replace(is.na(.), 0) %>% 
+                 relocate(sort(names(.)))
+             },
+             "country"={
+               plot_dat = plot_dat %>%
+                 pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
+                 count(Long, Lat, Country, name, value) %>%
+                 pivot_wider(names_from = c(name, value), values_from = n) %>%
+                 replace(is.na(.), 0) %>% 
+                 relocate(sort(names(.))) %>% 
+                 group_by(Country) %>% 
+                 summarise(across(-c(Lat, Long), sum))
+             },
+             "distance"={
+               
+             },
+             "testing"={
+               print(plot_dat)
+               next
+             })
 
       # plot_dat = plot_dat %>%
       #   group_by(Lat, Long, SNP1, SNP2) %>%
