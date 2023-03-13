@@ -173,6 +173,7 @@ server = function(input, output, session){
                pivot_wider(names_from = c(name, value), values_from = n) %>%
                replace(is.na(.), 0) %>% 
                relocate(sort(names(.)))
+             print(plot_dat)
            },
            "Country"={
              plot_dat = plot_dat %>%
@@ -221,7 +222,11 @@ server = function(input, output, session){
       addMinicharts(
         lng=subset_dat$Long, lat=subset_dat$Lat,
         type="pie",
-        chartdata=subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long", "Cluster", "MasterID"))]
+        chartdata=subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long", "Cluster", "MasterID"))],
+        colorPalette = c("salmon", "gold", "royalblue", "seagreen", "steelblue",
+                         "pink2", "plum1", "slategray1", "skyblue1", "snow3",
+                         "palegreen", "purple2", "sienna1", "olivedrab3", "honeydew1")
+        #colorPalette = ~pal(subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long", "Cluster", "MasterID"))])
       )
   })
   
