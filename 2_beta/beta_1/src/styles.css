@@ -8,6 +8,20 @@ div.outer {
   padding: 0;
 }
 
+#SNP1_alleles {
+  text-align: justify;
+  text-align-last: justify;
+  font-weight: bold;
+  overflow: hidden;
+}
+
+#SNP2_alleles {
+  text-align: justify;
+  text-align-last: justify;
+  font-weight: bold;
+  overflow: hidden;
+}
+
 body, label, input, button, select { 
   font-family: 'Helvetica Neue', Helvetica;
   font-weight: 200;
@@ -18,10 +32,19 @@ h1 {
   font-size: 15pt;
 }
 
+h2 {
+  font-weight: 150;
+  font-size: 11pt;
+}
+
+p {
+  text-align: justify;
+}
+
 #controlPanel {
   /* Appearance */
   background-color: white;
-  padding: 0 20px 20px 20px;
+  padding: 10px 10px 10px 10px;
   cursor: move;
   /* Fade out while not hovering */
   opacity: 0.65;

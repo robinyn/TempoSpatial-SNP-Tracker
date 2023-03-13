@@ -6,7 +6,7 @@ library(leaflet.minicharts)
 
 setwd("~/Dev/school/BINP29/popgen")
 
-db = dbConnect(SQLite(), "0_data/popgen_SNP.sqlite")
+db = dbConnect(SQLite(), "0_data/reich_v50.sqlite")
 
 res = dbSendQuery(db, "SELECT MAX(CAST(DateMean AS INTEGER)), MIN(CAST(DateMean AS INTEGER)) FROM sample_meta")
 
@@ -25,8 +25,15 @@ dbClearResult(res)
 timestep = 500
 SNP_ID = c("rs3094315", "rs6696609")
 twoSNPs = TRUE
-groupby = "distance"
+groupby = "testing2"
 dist_threshold = 1012
+
+# res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP_ID[1]))
+# test = dbFetch(res)
+# print(test$REF)
+# dbClearResult(res)
+# 
+# invokeRestart("abort")
 
 m = leaflet() %>%
   addTiles() %>%
@@ -66,7 +73,7 @@ cluster_Samples = function(dat){
     dat = dat %>% 
       merge(clusters, by="MasterID")
     
-    print(dat)
+    #print(dat)
     
   }else{
     dat$Cluster = 1
@@ -125,7 +132,7 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
       SNP_dat = dbFetch(res)
       dbClearResult(res)
       
-      print(SNP_dat)
+      #print(SNP_dat)
       
       SNP1 = SNP_dat[1,]
       SNP2 = SNP_dat[2,] 
@@ -204,9 +211,12 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
                relocate(sort(names(.))) %>% 
                merge(centroids, by="Cluster")
            },
-           "testing"={
+           "testing1"={
              print(plot_dat)
              next
+           },
+           "testing2"={
+             invokeRestart("abort")
            })
 
     print(m %>% addMinicharts(

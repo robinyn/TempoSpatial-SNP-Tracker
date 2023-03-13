@@ -20,5 +20,6 @@ dbClearResult(res)
 res = dbSendQuery(db, "SELECT * FROM distM")
 distM = dbFetch(res)
 dbClearResult(res)
+dbDisconnect(db)
 
 time_step = 500

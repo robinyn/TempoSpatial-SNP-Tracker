@@ -5,6 +5,8 @@ library(leaflet)
 library(leaflet.minicharts)
 library(RSQLite)
 
+setwd("../")
+
 # Main server function
 server = function(input, output, session){
   # Server-wise global reactive variable for number of SNPs
@@ -21,6 +23,38 @@ server = function(input, output, session){
     as.numeric(input$group_dist_input)
   })
   
+  observeEvent(input$SNP_choice1,{
+      SNP1_choice = input$SNP_choice1
+      db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+      res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP1_choice))
+      SNP1_alleles = dbFetch(res)
+      dbClearResult(res)
+      dbDisconnect(db)
+      
+      SNP1_alleles[SNP1_alleles=="1"]="A"
+      SNP1_alleles[SNP1_alleles=="2"]="C"
+      SNP1_alleles[SNP1_alleles=="3"]="G"
+      SNP1_alleles[SNP1_alleles=="4"]="T"
+      
+      output$SNP1_alleles=renderText(sprintf("REF: %s<br/>ALT: %s", SNP1_alleles[1], SNP1_alleles[2]))
+  })
+  
+  observeEvent(input$SNP_choice2,{
+    SNP2_choice = input$SNP_choice2
+    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP2_choice))
+    SNP2_alleles = dbFetch(res)
+    dbClearResult(res)
+    dbDisconnect(db)
+    
+    SNP2_alleles[SNP2_alleles=="1"]="A"
+    SNP2_alleles[SNP2_alleles=="2"]="C"
+    SNP2_alleles[SNP2_alleles=="3"]="G"
+    SNP2_alleles[SNP2_alleles=="4"]="T"
+    
+    output$SNP2_alleles=renderText(sprintf("REF: %s<br/>ALT: %s", SNP2_alleles[1], SNP2_alleles[2]))
+  })
+  
   # Initial map render
   output$map = renderLeaflet({
     leaflet() %>% 
@@ -32,9 +66,11 @@ server = function(input, output, session){
   # Listen to CHR1 choice 
   observeEvent(input$CHR_choice1, {
     CHR_ID = input$CHR_choice1
+    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     res = dbSendQuery(db, sprintf("SELECT SNP_ID FROM SNP_meta WHERE CHR=%s", CHR_ID))
     SNP_selection = dbFetch(res)
     dbClearResult(res)
+    dbDisconnect(db)
     
     updateSelectizeInput(session,"SNP_choice1",choices=unlist(SNP_selection$SNP_ID), server=TRUE)
   })
@@ -42,9 +78,11 @@ server = function(input, output, session){
   # Listen to CHR2 choice
   observeEvent(input$CHR_choice2, {
     CHR_ID = input$CHR_choice2
+    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     res = dbSendQuery(db, sprintf("SELECT SNP_ID FROM SNP_meta WHERE CHR=%s", CHR_ID))
     SNP_selection = dbFetch(res)
     dbClearResult(res)
+    dbDisconnect(db)
     
     updateSelectizeInput(session,"SNP_choice2",choices=unlist(SNP_selection$SNP_ID), server=TRUE)
   })
@@ -58,6 +96,7 @@ server = function(input, output, session){
   
   # Filter data reactive to timeline change
   filteredData = reactive({
+    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     start_time = input$timeline
     end_time = input$timeline-time_step
     query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta WHERE CAST(DateMean AS INTEGER) <= %s AND CAST(DateMean AS INTEGER) >=%s", start_time, end_time)
@@ -101,6 +140,13 @@ server = function(input, output, session){
       plot_dat = merge(samples_to_plot, SNP1, by="MasterID") %>% 
         merge(SNP2, by="MasterID")
       
+      plot_dat = plot_dat %>% 
+        mutate(SNP1 = replace(SNP1, SNP1=="00", "Missing"), SNP2 = replace(SNP2, SNP2=="00", "Missing")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "1", "A"), SNP2 = str_replace_all(SNP2, "1", "A")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "2", "C"), SNP2 = str_replace_all(SNP2, "2", "C")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "3", "G"), SNP2 = str_replace_all(SNP2, "3", "G")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "4", "T"), SNP2 = str_replace_all(SNP2, "4", "T"))
+      
     }else{
       query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, input$SNP_choice1)
       res = dbSendQuery(db, query)
@@ -111,6 +157,12 @@ server = function(input, output, session){
       
       plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
       plot_dat = plot_dat[plot_dat$SNP1!="00",]
+      
+      plot_dat = plot_dat %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "1", "A")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "2", "C")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "3", "G")) %>% 
+        mutate(SNP1 = str_replace_all(SNP1, "4", "T"))
     }
     
     switch(input$grouping_var,
@@ -147,7 +199,7 @@ server = function(input, output, session){
                relocate(sort(names(.))) %>% 
                merge(centroids, by="Cluster")
            })
-    
+    dbDisconnect(db)
     return(plot_dat)
   })
   
@@ -207,8 +259,6 @@ server = function(input, output, session){
       
       dat = dat %>% 
         merge(clusters, by="MasterID")
-      
-      print(dat)
       
     }else{
       dat$Cluster = 1

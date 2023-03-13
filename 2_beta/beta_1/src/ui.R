@@ -14,20 +14,31 @@ navbarPage("SNP Tracker", id="navbar",
                         
                         absolutePanel(id="controlPanel", class="panel panel-default", fixed=TRUE, draggable=TRUE,
                                       top=60,  left="auto", right=20, bottom="auto",
-                                      width=330, height="auto",
+                                      width=350, height="auto",
                                       
                                       fluidPage(
                                         h1("Controls"),
                                         radioButtons("num_SNP", "Number of SNPs to track", choices = 1:2, inline=TRUE, selected=1),
                                         fluidRow(
-                                          column(width=4, selectInput("CHR_choice1", "Chromosome", CHR_selection)),
-                                          column(width=7, selectizeInput("SNP_choice1", "SNP1", choices=NULL, selected=NULL))
+                                          column(width=4, selectInput("CHR_choice1", "Chromosome", CHR_selection),
+                                                 style='padding-left:15px; padding-right:1px; padding-top:1px; padding-bottom:0px'),
+                                          column(width=5, selectizeInput("SNP_choice1", "SNP1", choices=NULL, selected=NULL),
+                                                 style='padding-left:2px; padding-right:1px; padding-top:1px; padding-bottom:0px'),
+                                          column(width=2, 
+                                                 htmlOutput("SNP1_alleles"),
+                                                 style='padding-left:6px; padding-right:1px; padding-top:24px; padding-bottom:10px')
                                         ),
+                                        
                                         conditionalPanel(
                                           condition="input.num_SNP==2",
                                           fluidRow(
-                                            column(width=4, selectInput("CHR_choice2", "Chromosome", CHR_selection)),
-                                            column(width=7, selectizeInput("SNP_choice2", "SNP2", choices=NULL, selected=NULL))
+                                            column(width=4, selectInput("CHR_choice2", "Chromosome", CHR_selection),
+                                                   style='padding-left:15px; padding-right:1px; padding-top:1px; padding-bottom:0px'),
+                                            column(width=5, selectizeInput("SNP_choice2", "SNP2", choices=NULL, selected=NULL),
+                                                   style='padding-left:2px; padding-right:1px; padding-top:1px; padding-bottom:0px'),
+                                            column(width=2, 
+                                                   htmlOutput("SNP2_alleles"),
+                                                   style='padding-left:6px; padding-right:1px; padding-top:24px; padding-bottom:10px')
                                           )
                                         ),
                                         
