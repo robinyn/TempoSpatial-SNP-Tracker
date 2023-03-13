@@ -14,10 +14,14 @@ time_range = as.numeric(dbFetch(res))
 
 dbClearResult(res)
 
-timestep = 1000
+res = dbSendQuery(db, "SELECT * FROM country_cords")
+country_list = dbFetch(res)
+dbClearResult(res)
+
+timestep = 500
 SNP_ID = c("rs3094315", "rs6696609")
 twoSNPs = TRUE
-groupby = "testing"
+groupby = "country"
 
 m = leaflet() %>%
   addTiles() %>%
@@ -40,50 +44,33 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
       SNP_dat = dbFetch(res)
       dbClearResult(res)
       
+      print(SNP_dat)
+      
       SNP1 = SNP_dat[1,]
       SNP2 = SNP_dat[2,] 
       
-      SNP1 = SNP1 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
-      SNP2 = SNP2 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP2")
+      if(ncol(SNP_dat)==1){
+        SNP1 = c(noquote(colnames(SNP_dat))) %>% 
+          cbind(SNP1) %>% 
+          as.data.frame() %>% 
+          rename("MasterID"=".")
+        
+        SNP2 = c(noquote(colnames(SNP_dat))) %>% 
+          cbind(SNP2) %>% 
+          as.data.frame() %>% 
+          rename("MasterID"=".")
+      }else{
+        SNP1 = SNP1 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
+        SNP2 = SNP2 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP2")
+      }
       
       plot_dat = merge(samples_to_plot, SNP1, by="MasterID") %>% 
         merge(SNP2, by="MasterID")
       
-      # Transform for two SNPs count data
-      switch(groupby,
-             "none"={
-               plot_dat = plot_dat %>%
-                 pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
-                 count(Long, Lat, name, value) %>%
-                 pivot_wider(names_from = c(name, value), values_from = n) %>%
-                 replace(is.na(.), 0) %>% 
-                 relocate(sort(names(.)))
-             },
-             "country"={
-               plot_dat = plot_dat %>%
-                 pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
-                 count(Long, Lat, Country, name, value) %>%
-                 pivot_wider(names_from = c(name, value), values_from = n) %>%
-                 replace(is.na(.), 0) %>% 
-                 relocate(sort(names(.))) %>% 
-                 group_by(Country) %>% 
-                 summarise(across(-c(Lat, Long), sum))
-             },
-             "distance"={
-               
-             },
-             "testing"={
-               print(plot_dat)
-               next
-             })
+      if(nrow(plot_dat)==0){
+        next
+      }
 
-      # plot_dat = plot_dat %>%
-      #   group_by(Lat, Long, SNP1, SNP2) %>%
-      #   tally() %>%
-      #   pivot_wider(names_from=c(SNP1, SNP2), values_from=n) %>%
-      #   replace(is.na(.), 0)
-      
-      print(plot_dat)
     }else{
       query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, SNP_ID[1])
       res = dbSendQuery(db, query)
@@ -93,14 +80,43 @@ for(start_time in seq(time_range[1], time_range[2], by=-timestep)){
       SNP_dat = SNP_dat %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
       
       plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
+      
+      if(nrow(plot_dat)==0){
+        next
+      }
+      
     }
-    #print(SNP_dat)
     
-    #plot_dat = plot_dat[plot_dat$SNP1!="00",]
-    
-    if(nrow(plot_dat)==0){
-      next
-    }
+    switch(groupby,
+           "none"={
+             plot_dat = plot_dat %>%
+               pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
+               count(Long, Lat, name, value) %>%
+               pivot_wider(names_from = c(name, value), values_from = n) %>%
+               replace(is.na(.), 0) %>% 
+               relocate(sort(names(.)))
+             print(plot_dat)
+           },
+           "country"={
+             plot_dat = plot_dat %>%
+               select(-c(Long, Lat)) %>% 
+               pivot_longer(-c(MasterID, Country)) %>%
+               count(Country, name, value) %>%
+               pivot_wider(names_from = c(name, value), values_from = n) %>%
+               replace(is.na(.), 0) %>% 
+               relocate(sort(names(.))) %>% 
+               group_by(Country) %>% 
+               summarise(across(everything(), sum)) %>% 
+               merge(country_list, by="Country")
+             print(plot_dat)
+           },
+           "distance"={
+             
+           },
+           "testing"={
+             print(plot_dat)
+             next
+           })
 
     print(m %>% addMinicharts(
       lng=plot_dat$Long, lat=plot_dat$Lat,
