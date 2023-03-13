@@ -1,7 +1,7 @@
 library(RSQLite)
 
 setwd("~/Dev/school/BINP29/popgen")
-db = dbConnect(SQLite(), "0_data/popgen_SNP.sqlite")
+db = dbConnect(SQLite(), "0_data/reich_v50.sqlite")
 res = dbSendQuery(db, "SELECT MAX(CAST(DateMean AS INTEGER)), MIN(CAST(DateMean AS INTEGER)) FROM sample_meta")
 time_range = as.numeric(dbFetch(res))
 dbClearResult(res)
