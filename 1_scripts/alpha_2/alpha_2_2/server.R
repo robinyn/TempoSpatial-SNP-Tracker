@@ -5,11 +5,6 @@ library(leaflet)
 library(leaflet.minicharts)
 library(RSQLite)
 
-# Retrieve country centroid coordinates from SQL database
-res = dbSendQuery(db, "SELECT * FROM country_cords")
-country_list = dbFetch(res)
-dbClearResult(res)
-
 # Main server function
 server = function(input, output, session){
   # Server-wise global reactive variable for number of SNPs
@@ -19,6 +14,10 @@ server = function(input, output, session){
     }else{
       TRUE
     }
+  })
+  
+  dist_threshold = reactive({
+    as.numeric(input$group_dist_input)
   })
   
   # Initial map render
@@ -135,7 +134,17 @@ server = function(input, output, session){
                merge(country_list, by="Country")
            },
            "Distance"={
+             plot_dat = cluster_Samples(plot_dat)
+             centroids = calc_Centroid(plot_dat)
              
+             plot_dat = plot_dat %>% 
+               select(-c(MasterID, Long, Lat, Country)) %>% 
+               pivot_longer(-c(Cluster)) %>% 
+               count(Cluster, name, value) %>% 
+               pivot_wider(names_from = c(name, value), values_from = n) %>%
+               replace(is.na(.), 0) %>% 
+               relocate(sort(names(.))) %>% 
+               merge(centroids, by="Cluster")
            })
     
     return(plot_dat)
@@ -159,7 +168,85 @@ server = function(input, output, session){
       addMinicharts(
         lng=subset_dat$Long, lat=subset_dat$Lat,
         type="pie",
-        chartdata=subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long"))]
+        chartdata=subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long", "Cluster", "MasterID"))]
       )
   })
+  
+  # Functions for distance based clustering
+  
+  dist_Matrix = function(dat){
+    sample_dist= dat %>% 
+      expand(MasterID, MasterID) %>% 
+      rename("ID1"="MasterID...1", "ID2"="MasterID...2") %>% 
+      left_join(distM, by=c("ID1"="id1", "ID2"="id2")) %>% 
+      pivot_wider(everything(), names_from =ID2, values_from = dist) %>% 
+      column_to_rownames(var ="ID1")
+    
+    rnames = rownames(sample_dist)
+    
+    sample_dist %>% 
+      sapply(as.numeric) %>% 
+      data.matrix
+    
+    rownames(sample_dist) = rnames
+    
+    return(sample_dist)
+  }
+  
+  cluster_Samples = function(dat){
+    if(nrow(dat)>1){
+      distances = dist_Matrix(dat)
+      cluster_tree = hclust(as.dist(distances))
+      clusters = cutree(cluster_tree, h=dist_threshold()*1000)
+      
+      clusters = clusters %>% 
+        as.list() %>% 
+        data.frame() %>% 
+        pivot_longer(everything(), names_to = "MasterID", values_to = "Cluster")
+      
+      dat = dat %>% 
+        merge(clusters, by="MasterID")
+      
+      print(dat)
+      
+    }else{
+      dat$Cluster = 1
+    }
+    
+    return(dat)
+  }
+  
+  calc_Centroid = function(dat){
+    if(nrow(dat)==1){
+      cluster_centroids = data.frame(matrix(NA, nrow=1,ncol=3))
+      colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
+      
+      cluster_centroids$Cluster = 1
+      cluster_centroids$Lat = dat$Lat
+      cluster_centroids$Long = dat$Long
+      
+      return(cluster_centroids)
+    }
+    
+    cluster_groups = dat %>% 
+      group_by(Cluster, Lat, Long) %>% 
+      summarise() %>% 
+      sapply(as.numeric) %>% 
+      data.frame()
+    
+    cluster_centroids = data.frame(matrix(NA, nrow=length(unique(cluster_groups$Cluster)),ncol=3))
+    colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
+    
+    cluster_centroids$Cluster = unique(cluster_groups$Cluster)
+    
+    for(cluster in unique(cluster_groups$Cluster)){
+      lat_c = sum(cluster_groups$Lat[cluster_groups$Cluster==cluster])/length(cluster_groups$Lat[cluster_groups$Cluster==cluster])
+      long_c = sum(cluster_groups$Long[cluster_groups$Cluster==cluster])/length(cluster_groups$Long[cluster_groups$Cluster==cluster])
+      
+      cluster_centroids$Lat[cluster_centroids$Cluster==cluster] = lat_c
+      cluster_centroids$Long[cluster_centroids$Cluster==cluster] = long_c
+    }
+    
+    return(cluster_centroids)
+  }
 }

@@ -26,7 +26,7 @@ timestep = 500
 SNP_ID = c("rs3094315", "rs6696609")
 twoSNPs = TRUE
 groupby = "distance"
-dist_threshold = 1000
+dist_threshold = 1012
 
 m = leaflet() %>%
   addTiles() %>%

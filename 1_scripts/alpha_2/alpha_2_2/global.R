@@ -10,4 +10,14 @@ res = dbSendQuery(db, "SELECT DISTINCT CHR FROM SNP_meta")
 CHR_selection = dbFetch(res)
 dbClearResult(res )
 
+# Retrieve country centroid coordinates from SQL database
+res = dbSendQuery(db, "SELECT * FROM country_cords")
+country_list = dbFetch(res)
+dbClearResult(res)
+
+# Retrieve distance matrix from SQL database
+res = dbSendQuery(db, "SELECT * FROM distM")
+distM = dbFetch(res)
+dbClearResult(res)
+
 time_step = 500
