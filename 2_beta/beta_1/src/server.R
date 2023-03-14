@@ -4,6 +4,7 @@ library(tidyverse)
 library(leaflet)
 library(leaflet.minicharts)
 library(RSQLite)
+library(RColorBrewer)
 
 setwd("../")
 
@@ -21,6 +22,57 @@ server = function(input, output, session){
   # Server-wise global reactive variable for distance threshold for clustering
   dist_threshold = reactive({
     as.numeric(input$group_dist_input)
+  })
+  
+  # Palette choice (Qual, Seq, Div)
+  plot_palette = reactive({
+    input$palette_choice
+  })
+  
+  # Plot type (Pie, Bar)
+  plot_type = reactive({
+  switch(input$plot_type,
+         "Pie"=return("pie"),
+         "Bar"=return("bar")
+         )
+  })
+  
+  # Opacity
+  opacity_val = reactive({
+    as.numeric(input$opacity)/100
+  })
+  
+  plot_size = reactive({
+    subset_dat = filteredData()
+    num_rows = nrow(subset_dat)
+    minimum_size = 10
+    maximum_size = 100
+    multiplier = (maximum_size-minimum_size)/100
+    return((minimum_size+(multiplier*as.numeric(input$plot_size))))
+  })
+  
+  legend_show = reactive({
+    if(input$legend=="None"){
+      return(FALSE)
+    }else{
+      return(TRUE)
+    }
+  })
+  
+  legend_pos = reactive({
+    switch(input$legend,
+           "TR"="topright",
+           "TL"="topleft",
+           "BR"="bottomright",
+           "BL"="bottomleft")
+  })
+  
+  label_show = reactive({
+    input$showlabel
+  })
+  
+  data_type = reactive({
+    input$data_type
   })
   
   observeEvent(input$SNP_choice1,{
@@ -94,6 +146,12 @@ server = function(input, output, session){
                           choices=seq(from=time_range[1], to=time_range[2], by=-time_step))
   })
   
+  # Update color scheme choices based on palette choice
+  observeEvent(input$palette_type, {
+    palette_type_choice = input$palette_type
+    updateSelectInput(session, "palette_choice", choices=color_palettes[[palette_type_choice]])
+  }, ignoreInit=TRUE)
+  
   # Filter data reactive to timeline change
   filteredData = reactive({
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
@@ -159,6 +217,7 @@ server = function(input, output, session){
       plot_dat = plot_dat[plot_dat$SNP1!="00",]
       
       plot_dat = plot_dat %>% 
+        #mutate(SNP1 = replace(SNP1, SNP1=="00", "Missing")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "1", "A")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "2", "C")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "3", "G")) %>% 
@@ -172,8 +231,7 @@ server = function(input, output, session){
                count(Long, Lat, name, value) %>%
                pivot_wider(names_from = c(name, value), values_from = n) %>%
                replace(is.na(.), 0) %>% 
-               relocate(sort(names(.)))
-             print(plot_dat)
+               relocate(sort(names(.))) 
            },
            "Country"={
              plot_dat = plot_dat %>%
@@ -190,7 +248,7 @@ server = function(input, output, session){
            "Distance"={
              plot_dat = cluster_Samples(plot_dat)
              centroids = calc_Centroid(plot_dat)
-             
+
              plot_dat = plot_dat %>% 
                select(-c(MasterID, Long, Lat, Country)) %>% 
                pivot_longer(-c(Cluster)) %>% 
@@ -199,8 +257,14 @@ server = function(input, output, session){
                replace(is.na(.), 0) %>% 
                relocate(sort(names(.))) %>% 
                merge(centroids, by="Cluster")
+
            })
+    
     dbDisconnect(db)
+    
+    if(data_type()=="Freq"){
+      plot_dat = allele_freq(plot_dat)
+    }
     return(plot_dat)
   })
   
@@ -217,21 +281,169 @@ server = function(input, output, session){
       return()
     }
     
+    # MAIN CHART FUNCTION
+    
+    if(label_show()){
+      switch(input$grouping_var,
+             "None"={
+               leafletProxy("map") %>% 
+                 clearMarkers() %>% 
+                 addLabelOnlyMarkers(lng = as.numeric(subset_dat$Long), lat = as.numeric(subset_dat$Lat), 
+                                     label = sprintf("%.4f, %.4f", as.numeric(subset_dat$Long), as.numeric(subset_dat$Lat)),
+                                     labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, 
+                                                                 direction = "bottom", offset = c(0,5)))
+             },
+             "Country"={
+               leafletProxy("map") %>% 
+                 clearMarkers() %>% 
+                 addLabelOnlyMarkers(lng = as.numeric(subset_dat$Long), lat = as.numeric(subset_dat$Lat), label = subset_dat$Country,
+                                     labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, 
+                                                                 direction = "bottom", offset = c(0,5)))
+             },
+             "Distance"={
+               leafletProxy("map") %>% 
+                 clearMarkers() %>% 
+                 addLabelOnlyMarkers(lng = as.numeric(subset_dat$Long), lat = as.numeric(subset_dat$Lat), label = paste("Cluster",subset_dat$Cluster),
+                                     labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, 
+                                                                 direction = "bottom", offset = c(0,5)))
+             })
+    }
+    
     leafletProxy("map") %>% 
       clearMinicharts() %>% 
       addMinicharts(
-        lng=subset_dat$Long, lat=subset_dat$Lat,
-        type="pie",
-        chartdata=subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long", "Cluster", "MasterID"))],
-        colorPalette = c("salmon", "gold", "royalblue", "seagreen", "steelblue",
-                         "pink2", "plum1", "slategray1", "skyblue1", "snow3",
-                         "palegreen", "purple2", "sienna1", "olivedrab3", "honeydew1")
-        #colorPalette = ~pal(subset_dat[, !(colnames(subset_dat) %in% c("Country", "Lat", "Long", "Cluster", "MasterID"))])
+        lng = subset_dat$Long, lat=subset_dat$Lat,
+        type = plot_type(),
+        chartdata = subset_dat[, !(colnames(subset_dat) %in% disregard)],
+        colorPalette = brewer.pal(n=9, plot_palette()),
+        fillColor = brewer.pal(n=3, plot_palette())[3],
+        legend = legend_show(),
+        legendPosition = legend_pos(),
+        opacity = opacity_val(),
+        width = plot_size(),
+        height = plot_size()
       )
+    
+    if(length(c(colnames(subset_dat)[!colnames(subset_dat) %in% disregard]))==1 && legend_show()){
+      leafletProxy("map") %>% 
+        addLegend(legend_pos(),labels=c(colnames(subset_dat)[!colnames(subset_dat) %in% disregard]),
+                  colors = brewer.pal(n=3, plot_palette())[3], layerId="minichartsLegend")
+    }
   })
+  
+  # Allele frequency calculations
+  
+  allele_freq = function(dat){
+    uniqchars <- function(x) unique(unlist(strsplit(x, "")))
+    switchchr <- function(x) paste(unlist(strsplit(x,""))[2],unlist(strsplit(x,""))[1], sep="")
+    SNP1_alleles = c()
+    SNP2_alleles = c()
+    
+    col_names_list = colnames(dat)[!colnames(dat) %in% disregard]
+    alleles = str_split(col_names_list, "_", simplify = TRUE) %>% data.frame()
+    colnames(alleles) = c("SNP", "Genotype")
+    
+    alleles = alleles[!alleles$Genotype=="Missing",]
+    
+    dat = dat %>% 
+      select(-contains("Missing"))
+    
+    if(twoSNPs()){
+      SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
+      SNP2_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP2"])
+      dat = dat %>% 
+        mutate(SNP1_total=rowSums(select(.,contains("SNP1")))) %>% 
+        mutate(SNP2_total=rowSums(select(.,contains("SNP2"))))
+      
+      SNP1_tab = dat %>% 
+        select(contains("SNP1"))
+      
+      SNP2_tab = dat %>% 
+        select(contains("SNP2"))
+      
+      if(length(SNP1_alleles)==1){
+        allele_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="")
+        col_name = paste("SNP1_", SNP1_alleles[1], sep="")
+        
+        SNP1_tab = SNP1_tab %>% 
+          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP1_total)
+      }else{
+        allele1_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="") 
+        allele2_name = paste("SNP1_", SNP1_alleles[2], SNP1_alleles[2], sep="") 
+        col_name1 = paste("SNP1_", SNP1_alleles[1], sep="") 
+        col_name2 = paste("SNP1_", SNP1_alleles[2], sep="") 
+        
+        SNP1_tab = SNP1_tab %>% 
+          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) %>% 
+          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) 
+      }
+      
+      if(length(SNP2_alleles)==1){
+        allele_name = paste("SNP2_", SNP2_alleles[1], SNP2_alleles[1], sep="")
+        col_name = paste("SNP2_", SNP2_alleles[1], sep="")
+        
+        SNP2_tab = SNP2_tab %>% 
+          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP2_total)
+      }else{
+        allele1_name = paste("SNP2_", SNP2_alleles[1], SNP2_alleles[1], sep="") 
+        allele2_name = paste("SNP2_", SNP2_alleles[2], SNP2_alleles[2], sep="") 
+        col_name1 = paste("SNP2_", SNP2_alleles[1], sep="") 
+        col_name2 = paste("SNP2_", SNP2_alleles[2], sep="") 
+        
+        SNP2_tab = SNP2_tab %>% 
+          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP2_total) %>% 
+          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP2_total) 
+      }
+      
+      SNP1_tab = SNP1_tab %>% 
+        mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
+      SNP2_tab = SNP2_tab %>% 
+        mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
+      
+      dat = dat %>% 
+        cbind(SNP1_tab) %>% 
+        cbind(SNP2_tab) %>% 
+        select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$"))
+      
+    }else{
+      SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
+      dat = dat %>% 
+        mutate(SNP1_total=rowSums(select(.,contains("SNP1"))))
+      SNP1_tab = dat %>% 
+        select(contains("SNP1"))
+      
+      if(length(SNP1_alleles)==1){
+        allele_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="")
+        col_name = paste("SNP1_", SNP1_alleles[1], sep="")
+        
+        SNP1_tab = SNP1_tab %>% 
+          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP1_total)
+      }else{
+        allele1_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="") 
+        allele2_name = paste("SNP1_", SNP1_alleles[2], SNP1_alleles[2], sep="") 
+        col_name1 = paste("SNP1_", SNP1_alleles[1], sep="") 
+        col_name2 = paste("SNP1_", SNP1_alleles[2], sep="") 
+        
+        SNP1_tab = SNP1_tab %>% 
+          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) %>% 
+          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) 
+      }
+      
+      SNP1_tab = SNP1_tab %>% 
+        mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
+      
+      dat = dat %>% 
+        cbind(SNP1_tab) %>% 
+        select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$"))
+      
+    }
+    
+    return(dat)
+  }
   
   # Functions for distance based clustering
   
+  # Create distance matrix from distM
   dist_Matrix = function(dat){
     sample_dist= dat %>% 
       expand(MasterID, MasterID) %>% 
@@ -251,6 +463,7 @@ server = function(input, output, session){
     return(sample_dist)
   }
   
+  # Hierarchical clustering based on distance threshold
   cluster_Samples = function(dat){
     if(nrow(dat)>1){
       distances = dist_Matrix(dat)
@@ -260,7 +473,8 @@ server = function(input, output, session){
       clusters = clusters %>% 
         as.list() %>% 
         data.frame() %>% 
-        pivot_longer(everything(), names_to = "MasterID", values_to = "Cluster")
+        pivot_longer(everything(), names_to = "MasterID", values_to = "Cluster") %>% 
+        group_by(Cluster) 
       
       dat = dat %>% 
         merge(clusters, by="MasterID")
@@ -272,14 +486,15 @@ server = function(input, output, session){
     return(dat)
   }
   
+  # Calculate centroids of clusters
   calc_Centroid = function(dat){
-    if(nrow(dat)==1){
+    if(length(unique(dat$Cluster))==1){
       cluster_centroids = data.frame(matrix(NA, nrow=1,ncol=3))
       colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
-      
+
       cluster_centroids$Cluster = 1
-      cluster_centroids$Lat = dat$Lat
-      cluster_centroids$Long = dat$Long
+      cluster_centroids$Lat = dat$Lat[1]
+      cluster_centroids$Long = dat$Long[1]
       
       return(cluster_centroids)
     }

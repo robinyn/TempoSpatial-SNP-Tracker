@@ -23,3 +23,13 @@ dbClearResult(res)
 dbDisconnect(db)
 
 time_step = 500
+
+Sequential = c("YlOrRd", "YlOrBr", "YlGnBu", "YlGn", "Reds", "RdPu", "Purples", "PuRd", "PuBuGn", "PuBu", "OrRd", "Oranges",
+                  "Greys", "Greens", "GnBu", "BuPu", "BuGn", "Blues")
+Qualitative = c("Set1", "Set2", "Set3", "Pastel1", "Pastel2", "Paired","Dark2", "Accent")
+
+Diverging = c("Spectral", "RdYlGn", "RdGy", "RdBu", "PuOr", "PRGn", "PiYG", "BrBG")
+
+color_palettes = list("Sequential"=Sequential, "Qualitative"=Qualitative, "Divergent"=Diverging)
+
+disregard = c("Country", "Lat", "Long", "Cluster", "MasterID")

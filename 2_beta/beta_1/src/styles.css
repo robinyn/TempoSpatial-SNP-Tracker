@@ -41,7 +41,9 @@ p {
   text-align: justify;
 }
 
-#controlPanel {
+/*top right bottom left*/
+
+#mainPanel {
   /* Appearance */
   background-color: white;
   padding: 10px 10px 10px 10px;
@@ -51,7 +53,7 @@ p {
   zoom: 0.9;
   transition: opacity 0.5s ease-in-out;
 }
-#controlPanel:hover {
+#mainPanel:hover {
   /* Fade in while hovering */
   opacity: 0.95;
   transition-delay: 0;
