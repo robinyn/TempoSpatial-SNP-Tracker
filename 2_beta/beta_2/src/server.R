@@ -87,10 +87,10 @@ server = function(input, output, session){
       dbClearResult(res)
       dbDisconnect(db)
       
-      SNP1_alleles[SNP1_alleles=="1"]="A"
-      SNP1_alleles[SNP1_alleles=="2"]="C"
-      SNP1_alleles[SNP1_alleles=="3"]="G"
-      SNP1_alleles[SNP1_alleles=="4"]="T"
+      SNP1_alleles[SNP1_alleles=="1" | SNP1_alleles==1]="A"
+      SNP1_alleles[SNP1_alleles=="2" | SNP1_alleles==2]="C"
+      SNP1_alleles[SNP1_alleles=="3" | SNP1_alleles==3]="G"
+      SNP1_alleles[SNP1_alleles=="4" | SNP1_alleles==4]="T"
       
       output$SNP1_alleles=renderText(sprintf("REF: %s<br/>ALT: %s", SNP1_alleles[1], SNP1_alleles[2]))
   })
@@ -103,10 +103,10 @@ server = function(input, output, session){
     dbClearResult(res)
     dbDisconnect(db)
     
-    SNP2_alleles[SNP2_alleles=="1"]="A"
-    SNP2_alleles[SNP2_alleles=="2"]="C"
-    SNP2_alleles[SNP2_alleles=="3"]="G"
-    SNP2_alleles[SNP2_alleles=="4"]="T"
+    SNP2_alleles[SNP2_alleles=="1" | SNP2_alleles==1]="A"
+    SNP2_alleles[SNP2_alleles=="2" | SNP2_alleles==2]="C"
+    SNP2_alleles[SNP2_alleles=="3" | SNP2_alleles==3]="G"
+    SNP2_alleles[SNP2_alleles=="4" | SNP2_alleles==4]="T"
     
     output$SNP2_alleles=renderText(sprintf("REF: %s<br/>ALT: %s", SNP2_alleles[1], SNP2_alleles[2]))
   })
@@ -156,6 +156,50 @@ server = function(input, output, session){
     updateSelectInput(session, "palette_choice", choices=color_palettes[[palette_type_choice]])
   }, ignoreInit=TRUE)
   
+  # Cluster groups
+  cluster_table = reactive({
+    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta")
+    res = dbSendQuery(db, query)
+    cluster_table = dbFetch(res)
+    dbClearResult(res)
+    dbDisconnect(db)
+    
+    switch(input$grouping_var,
+           "None"={
+             cluster_table = cluster_table %>% 
+               mutate(Lat = as.numeric(Lat), Long = as.numeric(Long)) %>% 
+               group_by(Lat, Long) %>% 
+               mutate(Cluster = cur_group_id()) %>% 
+               mutate(Country = NA)
+           },
+           "Country"={
+             cluster_table = cluster_table %>% 
+               mutate(Lat = as.numeric(Lat), Long = as.numeric(Long)) %>% 
+               group_by(Country) %>% 
+               mutate(Cluster = cur_group_id()) %>% 
+               select(c(MasterID, Country, Cluster)) %>% 
+               merge(country_list, by="Country")
+           },
+           "Distance"={
+             cluster_table = cluster_Samples(cluster_table)
+             centroids = calc_Centroid(cluster_table)
+             
+             cluster_table = cluster_table %>%
+               select(c(MasterID, Country, Cluster)) %>% 
+               merge(centroids, by="Cluster") %>% 
+               mutate(Country = NA)
+           })
+    
+    return(cluster_table)
+  })
+  
+  plot_group = reactive({
+    cluster_table() %>% 
+    select(Lat, Long, Cluster, Country) %>% 
+    distinct()
+  })
+  
   # Filter data reactive to timeline change
   filteredData = reactive({
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
@@ -199,15 +243,20 @@ server = function(input, output, session){
         SNP2 = SNP2 %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP2")
       }
       
-      plot_dat = merge(samples_to_plot, SNP1, by="MasterID") %>% 
-        merge(SNP2, by="MasterID")
+      plot_dat = merge(samples_to_plot, SNP1, by="MasterID", all=TRUE) %>% 
+        merge(SNP2, by="MasterID", all=TRUE)
+      
+      plot_dat[is.na(plot_dat)]="00"
       
       plot_dat = plot_dat %>% 
         mutate(SNP1 = replace(SNP1, SNP1=="00", "Missing"), SNP2 = replace(SNP2, SNP2=="00", "Missing")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "1", "A"), SNP2 = str_replace_all(SNP2, "1", "A")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "2", "C"), SNP2 = str_replace_all(SNP2, "2", "C")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "3", "G"), SNP2 = str_replace_all(SNP2, "3", "G")) %>% 
-        mutate(SNP1 = str_replace_all(SNP1, "4", "T"), SNP2 = str_replace_all(SNP2, "4", "T"))
+        mutate(SNP1 = str_replace_all(SNP1, "4", "T"), SNP2 = str_replace_all(SNP2, "4", "T")) %>% 
+        select(-c(Long, Lat, Country)) %>% 
+        merge(cluster_table(), by="MasterID") %>% 
+        select(Cluster, SNP1, SNP2)
       
     }else{
       query = sprintf("SELECT %s FROM main WHERE SNP_ID='%s'", sample_list, input$SNP_choice1)
@@ -216,54 +265,33 @@ server = function(input, output, session){
       dbClearResult(res) 
       
       SNP_dat = SNP_dat %>% pivot_longer(everything(), names_to = "MasterID", values_to = "SNP1")
-      
-      plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID")
-      plot_dat = plot_dat[plot_dat$SNP1!="00",]
-      
+      plot_dat = merge(samples_to_plot, SNP_dat, by="MasterID", all=TRUE)
+      plot_dat[is.na(plot_dat)]="00"
+
       plot_dat = plot_dat %>% 
-        #mutate(SNP1 = replace(SNP1, SNP1=="00", "Missing")) %>% 
+        mutate(SNP1 = replace(SNP1, SNP1=="00", "Missing")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "1", "A")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "2", "C")) %>% 
         mutate(SNP1 = str_replace_all(SNP1, "3", "G")) %>% 
-        mutate(SNP1 = str_replace_all(SNP1, "4", "T"))
+        mutate(SNP1 = str_replace_all(SNP1, "4", "T")) %>% 
+        select(-c(Long, Lat, Country)) %>% 
+        merge(cluster_table(), by="MasterID") %>% 
+        select(Cluster, SNP1)
     }
     
-    switch(input$grouping_var,
-           "None"={
-             plot_dat = plot_dat %>%
-               pivot_longer(-c(Long, Lat, MasterID, Country)) %>%
-               count(Long, Lat, name, value) %>%
-               pivot_wider(names_from = c(name, value), values_from = n) %>%
-               replace(is.na(.), 0) %>% 
-               relocate(sort(names(.))) 
-           },
-           "Country"={
-             plot_dat = plot_dat %>%
-               select(-c(Long, Lat)) %>% 
-               pivot_longer(-c(MasterID, Country)) %>%
-               count(Country, name, value) %>%
-               pivot_wider(names_from = c(name, value), values_from = n) %>%
-               replace(is.na(.), 0) %>% 
-               relocate(sort(names(.))) %>% 
-               group_by(Country) %>% 
-               summarise(across(everything(), sum)) %>% 
-               merge(country_list, by="Country")
-           },
-           "Distance"={
-             plot_dat = cluster_Samples(plot_dat)
-             centroids = calc_Centroid(plot_dat)
-
-             plot_dat = plot_dat %>% 
-               select(-c(MasterID, Long, Lat, Country)) %>% 
-               pivot_longer(-c(Cluster)) %>% 
-               count(Cluster, name, value) %>% 
-               pivot_wider(names_from = c(name, value), values_from = n) %>%
-               replace(is.na(.), 0) %>% 
-               relocate(sort(names(.))) %>% 
-               merge(centroids, by="Cluster")
-
-           })
+    plot_dat = plot_group() %>% 
+      merge(plot_dat, by="Cluster", all=TRUE)
+    plot_dat[is.na(plot_dat)]="Missing"
     
+    plot_dat = plot_dat %>% 
+      pivot_longer(-c(Cluster, Country, Lat, Long)) %>% 
+      count(Cluster, Country, Lat, Long, name, value) %>% 
+      pivot_wider(names_from = c(name, value), values_from = n) %>%
+      replace(is.na(.), 0) %>% 
+      relocate(sort(names(.)))
+    
+    print(unique(plot_dat$Country))
+
     dbDisconnect(db)
     
     if(data_type()=="Freq"){
