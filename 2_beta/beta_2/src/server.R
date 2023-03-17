@@ -289,8 +289,6 @@ server = function(input, output, session){
       pivot_wider(names_from = c(name, value), values_from = n) %>%
       replace(is.na(.), 0) %>% 
       relocate(sort(names(.)))
-    
-    print(unique(plot_dat$Country))
 
     dbDisconnect(db)
     
@@ -303,12 +301,12 @@ server = function(input, output, session){
   observe({
     subset_dat = filteredData()
     if(is.null(subset_dat)){
-      leafletProxy("map") %>% 
+      leafletProxy("map") %>%
         clearMinicharts()
       return()
     }
     if(nrow(subset_dat)==0){
-      leafletProxy("map") %>% 
+      leafletProxy("map") %>%
         clearMinicharts()
       return()
     }
@@ -375,14 +373,16 @@ server = function(input, output, session){
     alleles = str_split(col_names_list, "_", simplify = TRUE) %>% data.frame()
     colnames(alleles) = c("SNP", "Genotype")
     
-    alleles = alleles[!alleles$Genotype=="Missing",]
     
-    dat = dat %>% 
-      select(-contains("Missing"))
+    alleles = alleles[!alleles$Genotype=="Missing",]
+    # 
+    # dat = dat %>%
+    #  select(-contains("Missing"))
     
     if(twoSNPs()){
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
       SNP2_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP2"])
+      
       dat = dat %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1")))) %>% 
         mutate(SNP2_total=rowSums(select(.,contains("SNP2"))))
@@ -393,12 +393,16 @@ server = function(input, output, session){
       SNP2_tab = dat %>% 
         select(contains("SNP2"))
       
-      if(length(SNP1_alleles)==1){
+      if(length(SNP1_alleles)==0){
+        SNP1_tab = SNP1_tab %>% 
+          mutate(SNP1_Missing=SNP1_Missing/SNP1_total)
+      }else if(length(SNP1_alleles)==1){
         allele_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="")
         col_name = paste("SNP1_", SNP1_alleles[1], sep="")
         
         SNP1_tab = SNP1_tab %>% 
-          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP1_total)
+          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP1_total) %>% 
+          mutate(SNP1_Missing=SNP1_Missing/SNP1_total)
       }else{
         allele1_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="") 
         allele2_name = paste("SNP1_", SNP1_alleles[2], SNP1_alleles[2], sep="") 
@@ -406,16 +410,21 @@ server = function(input, output, session){
         col_name2 = paste("SNP1_", SNP1_alleles[2], sep="") 
         
         SNP1_tab = SNP1_tab %>% 
-          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) %>% 
-          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) 
+          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})) - SNP1_Missing)/2))/SNP1_total) %>% 
+          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})) - SNP1_Missing)/2))/SNP1_total) %>% 
+          mutate(SNP1_Missing=SNP1_Missing/SNP1_total)
       }
       
-      if(length(SNP2_alleles)==1){
+      if(length(SNP2_alleles)==0){
+        SNP2_tab = SNP2_tab %>% 
+          mutate(SNP2_Missing=SNP2_Missing/SNP2_total)
+      }else if(length(SNP2_alleles)==1){
         allele_name = paste("SNP2_", SNP2_alleles[1], SNP2_alleles[1], sep="")
         col_name = paste("SNP2_", SNP2_alleles[1], sep="")
         
         SNP2_tab = SNP2_tab %>% 
-          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP2_total)
+          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP2_total) %>% 
+          mutate(SNP2_Missing=SNP2_Missing/SNP2_total)
       }else{
         allele1_name = paste("SNP2_", SNP2_alleles[1], SNP2_alleles[1], sep="") 
         allele2_name = paste("SNP2_", SNP2_alleles[2], SNP2_alleles[2], sep="") 
@@ -423,8 +432,9 @@ server = function(input, output, session){
         col_name2 = paste("SNP2_", SNP2_alleles[2], sep="") 
         
         SNP2_tab = SNP2_tab %>% 
-          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP2_total) %>% 
-          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP2_total) 
+          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})) - SNP2_Missing)/2))/SNP2_total) %>% 
+          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})) - SNP2_Missing)/2))/SNP2_total) %>% 
+          mutate(SNP2_Missing=SNP2_Missing/SNP2_total)
       }
       
       SNP1_tab = SNP1_tab %>% 
@@ -433,12 +443,14 @@ server = function(input, output, session){
         mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
       
       dat = dat %>% 
+        select(Cluster, Country, Lat, Long) %>%
         cbind(SNP1_tab) %>% 
         cbind(SNP2_tab) %>% 
-        select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$"))
+        select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$|^SNP[12]_Missing$"))
       
     }else{
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
+      
       dat = dat %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1"))))
       SNP1_tab = dat %>% 
@@ -449,7 +461,9 @@ server = function(input, output, session){
         col_name = paste("SNP1_", SNP1_alleles[1], sep="")
         
         SNP1_tab = SNP1_tab %>% 
-          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP1_total)
+          mutate({{col_name}}:=eval(parse(text={{allele_name}}))/SNP1_total) %>% 
+          mutate(SNP1_Missing=SNP1_Missing/SNP1_total)
+        
       }else{
         allele1_name = paste("SNP1_", SNP1_alleles[1], SNP1_alleles[1], sep="") 
         allele2_name = paste("SNP1_", SNP1_alleles[2], SNP1_alleles[2], sep="") 
@@ -457,16 +471,18 @@ server = function(input, output, session){
         col_name2 = paste("SNP1_", SNP1_alleles[2], sep="") 
         
         SNP1_tab = SNP1_tab %>% 
-          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) %>% 
-          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total) 
+          mutate({{col_name1}}:=(eval(parse(text={{allele1_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})) - SNP1_Missing)/2))/SNP1_total) %>% 
+          mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})) - SNP1_Missing)/2))/SNP1_total) %>% 
+          mutate(SNP1_Missing=SNP1_Missing/SNP1_total)
       }
       
       SNP1_tab = SNP1_tab %>% 
         mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
       
       dat = dat %>% 
+        select(Cluster, Country, Lat, Long) %>% 
         cbind(SNP1_tab) %>% 
-        select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$"))
+        select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$|^SNP[12]_Missing$"))
       
     }
     
