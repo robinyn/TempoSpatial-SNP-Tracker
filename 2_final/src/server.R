@@ -1,5 +1,21 @@
+# =======================================================================================================================================
+# Title: server.R
+# Author: Euisuk (Robin) Han
+# Date: 19/Mar/2023
+# Description: This is the server-side script for the R-shiny application "TempoSpatial SNP Tracker"
+# Dependencies: This script requires the following packages:
+#               shiny (version 1.7.4)
+#               shinythemes (version 1.2.0)
+#               tidyverse (version 1.3.2)
+#               leaflet (version 2.1.1)
+#               leaflet.minicharts (version 0.6.2)
+#               RSQLite (version 2.3.0)
+#               RColorBrewer (version 1.1-3)
+#               plotly (version 4.10.1)
+# ** Note: Newer versions of the packages may not be compatible **
+# =======================================================================================================================================
+
 library(shiny)
-library(shinythemes)
 library(tidyverse)
 library(leaflet)
 library(leaflet.minicharts)
@@ -7,11 +23,12 @@ library(RSQLite)
 library(RColorBrewer)
 library(plotly)
 
+# Set working directory to root folder
 setwd("../")
 
 # Main server function
 server = function(input, output, session){
-  # Server-wise global reactive variable for number of SNPs
+  # Server-wise global reactive variable for number of SNPs to track based on user input
   twoSNPs = reactive({
     if(input$num_SNP==1){
       FALSE
@@ -20,17 +37,17 @@ server = function(input, output, session){
     }
   })
   
-  # Server-wise global reactive variable for distance threshold for clustering
+  # Server-wise global reactive variable for distance threshold for clustering based on user input
   dist_threshold = reactive({
     as.numeric(input$group_dist_input)
   })
   
-  # Palette choice (Qual, Seq, Div)
+  # Reactive palette choice (Qual, Seq, Div) based on user input
   plot_palette = reactive({
     input$palette_choice
   })
   
-  # Plot type (Pie, Bar)
+  # Reactive plot type (Pie, Bar) based on user input
   plot_type = reactive({
   switch(input$plot_type,
          "Pie"=return("pie"),
@@ -38,20 +55,26 @@ server = function(input, output, session){
          )
   })
   
-  # Opacity
+  # Reactive opacity based on user input
   opacity_val = reactive({
     as.numeric(input$opacity)/100
   })
   
+  # Reactive plot_size based on user input
   plot_size = reactive({
     subset_dat = filteredData()
     num_rows = nrow(subset_dat)
-    minimum_size = 10
-    maximum_size = 100
-    multiplier = (maximum_size-minimum_size)/100
+    minimum_size = 10 # Minimum possible size
+    maximum_size = 100 # Maximum possible size
+    
+    # The the user input for plot size is scaled with the min/max above
+    multiplier = (maximum_size-minimum_size)/100 
+    
+    # Scaled plot size is returned
     return((minimum_size+(multiplier*as.numeric(input$plot_size))))
   })
   
+  # Reactive variable to toggle a legend
   legend_show = reactive({
     if(input$legend=="None"){
       return(FALSE)
@@ -60,6 +83,7 @@ server = function(input, output, session){
     }
   })
   
+  # Reactive variable for legend position
   legend_pos = reactive({
     switch(input$legend,
            "TR"="topright",
@@ -68,26 +92,36 @@ server = function(input, output, session){
            "BL"="bottomleft")
   })
   
+  # Reactive variable to toggle labels on the map
   label_show = reactive({
+    # If labels are toggled off, remove all labels from map
     if(!input$showlabel){
       leafletProxy("map") %>% 
         clearMarkers()
     }
+    
     return(input$showlabel)
   })
-  
+
+  # Reactive variable for data type (Count/Freq)
   data_type = reactive({
     input$data_type
   })
   
+  # Reactive variable for SNP1 REF/ALT alleles
   SNP1_alleles = reactive({
+    
+    # The ID for SNP1 is retrieved
     SNP1_choice = input$SNP_choice1
+    
+    # Relevant REF/ALT allele information is queried and fetched from SQL database
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP1_choice))
     SNP1_alleles = dbFetch(res)
     dbClearResult(res)
     dbDisconnect(db)
     
+    # Numeric encoding for alleles/genotypes is converted to character
     SNP1_alleles[SNP1_alleles=="1" | SNP1_alleles==1]="A"
     SNP1_alleles[SNP1_alleles=="2" | SNP1_alleles==2]="C"
     SNP1_alleles[SNP1_alleles=="3" | SNP1_alleles==3]="G"
@@ -96,14 +130,20 @@ server = function(input, output, session){
     return(SNP1_alleles)
   })
   
+  # Reactive variable for SNP2 REF/ALT alleles
   SNP2_alleles = reactive({
+    
+    # The ID for SNP2 is retrieved
     SNP2_choice = input$SNP_choice2
+    
+    # Relevant REF/ALT allele information is queried and fetched from SQL database
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP2_choice))
     SNP2_alleles = dbFetch(res)
     dbClearResult(res)
     dbDisconnect(db)
     
+    # Numeric encoding for alleles/genotypes is converted to character
     SNP2_alleles[SNP2_alleles=="1" | SNP2_alleles==1]="A"
     SNP2_alleles[SNP2_alleles=="2" | SNP2_alleles==2]="C"
     SNP2_alleles[SNP2_alleles=="3" | SNP2_alleles==3]="G"
@@ -112,7 +152,7 @@ server = function(input, output, session){
     return(SNP2_alleles)
   })
   
-  # Print Ref/Alt alleles 
+  # Print REF/ALT allele information
   observe({
     output$SNP1_alleles=renderText(sprintf("REF: %s<br/>ALT: %s", SNP1_alleles()[1], SNP1_alleles()[2]))
   })
@@ -121,7 +161,7 @@ server = function(input, output, session){
     output$SNP2_alleles=renderText(sprintf("REF: %s<br/>ALT: %s", SNP2_alleles()[1], SNP2_alleles()[2]))
   })
   
-  # Initial map render
+  # Initial map render 
   output$map = renderLeaflet({
     leaflet(options=leafletOptions(zoomControl=FALSE)) %>% 
       addTiles(options=providerTileOptions(minZoom=2)) %>% 
@@ -134,45 +174,61 @@ server = function(input, output, session){
       layout(title="Total", xaxis=list(range=c(time_range[0],time_range[1])))
   })
   
-  # Listen to CHR1 choice 
+  # Observer for CHR1 choice - this function will detect changes in CHR1 choice
   observeEvent(input$CHR_choice1, {
+    
+    # Chromosome number selected by user is retrieved 
     CHR_ID = input$CHR_choice1
+    
+    # Appropriate SNP data for the selected chromosome is queried and fetched from SQL database
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     res = dbSendQuery(db, sprintf("SELECT SNP_ID FROM SNP_meta WHERE CHR=%s", CHR_ID))
     SNP_selection = dbFetch(res)
     dbClearResult(res)
     dbDisconnect(db)
     
+    # SNP1 Choice selection input control is updated with retrieved SNP data
     updateSelectizeInput(session,"SNP_choice1",choices=unlist(SNP_selection$SNP_ID), server=TRUE)
   })
   
-  # Listen to CHR2 choice
+  # Observer for CHR2 choice - this function will detect changes in CHR2 choice
   observeEvent(input$CHR_choice2, {
+    
+    # Chromosome number selected by user is retrieved 
     CHR_ID = input$CHR_choice2
+    
+    # Appropriate SNP data for the selected chromosome is queried and fetched from SQL database
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     res = dbSendQuery(db, sprintf("SELECT SNP_ID FROM SNP_meta WHERE CHR=%s", CHR_ID))
     SNP_selection = dbFetch(res)
     dbClearResult(res)
     dbDisconnect(db)
     
+    # SNP2 Choice selection input control is updated with retrieved SNP data
     updateSelectizeInput(session,"SNP_choice2",choices=unlist(SNP_selection$SNP_ID), server=TRUE)
   })
   
-  # Listen to time step change
+  # Observer for timestep change
   observeEvent(input$timestep, {
+    
+    # If timestep is changed by the user, the timeline is updated to reflect the new timestep
+    # Global variable time_step is also modified 
     time_step=input$timestep
     updateSliderTextInput(session, inputId="timeline", 
                           choices=seq(from=time_range[1], to=time_range[2], by=-time_step))
   })
   
-  # Update color scheme choices based on palette choice
+  # Observer for palette type change
   observeEvent(input$palette_type, {
+    
+    # Update color scheme choices based on palette choice
     palette_type_choice = input$palette_type
     updateSelectInput(session, "palette_choice", choices=color_palettes[[palette_type_choice]])
   }, ignoreInit=TRUE)
   
-  # Cluster groups
+  # Reactive cluster_table - All samples are clustered based on user input and assigned a cluster number
   cluster_table = reactive({
+    # MasterID, Lat, Long, Country info for all samples are retrieved from the SQL database
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta")
     res = dbSendQuery(db, query)
@@ -180,7 +236,10 @@ server = function(input, output, session){
     dbClearResult(res)
     dbDisconnect(db)
     
+    # The samples are clustered based on user input
     switch(input$grouping_var,
+           # If no grouping variable is selected, samples are grouped by their lat/long coordinates
+           # samples with identical coordinates will be clustered together
            "None"={
              cluster_table = cluster_table %>% 
                mutate(Lat = as.numeric(Lat), Long = as.numeric(Long)) %>% 
@@ -188,6 +247,7 @@ server = function(input, output, session){
                mutate(Cluster = cur_group_id()) %>% 
                mutate(Country = NA)
            },
+           # Samples are clustered by the country where the sample is from
            "Country"={
              cluster_table = cluster_table %>% 
                mutate(Lat = as.numeric(Lat), Long = as.numeric(Long)) %>% 
@@ -196,8 +256,11 @@ server = function(input, output, session){
                select(c(MasterID, Country, Cluster)) %>% 
                merge(country_list, by="Country")
            },
+           # Samples are clustered by the distance threshold set by the user
            "Distance"={
+             # Clustering function to group samples through hierarchical clustering
              cluster_table = cluster_Samples(cluster_table)
+             # Centroid coordinates for the clusters are calculated for plotting
              centroids = calc_Centroid(cluster_table)
              
              cluster_table = cluster_table %>%
@@ -209,6 +272,7 @@ server = function(input, output, session){
     return(cluster_table)
   })
   
+  # Reactive dataframe with Lat/Long coordinates for each cluster
   plot_group = reactive({
     cluster_table() %>% 
     select(Lat, Long, Cluster, Country) %>% 
@@ -217,21 +281,26 @@ server = function(input, output, session){
   
   # Filter data reactive to timeline change
   filteredData = reactive({
+    
+    # Set start/end times based on timeline/windowsize input
     start_time = input$timeline
     end_time = input$timeline-input$windowsize
     
+    # Filter samples based on start/end times
     plot_dat = filter_samples(start_time, end_time)
     
+    # If "Show missing data" option is toggled off, remove missing data
     if(!input$showmissing){
       plot_dat = plot_dat %>% 
         select(-any_of(c("SNP1_Missing", "SNP2_Missing")))
     }
     
+    # If after removal, there is no data left to show, return NULL
     if(!any(grepl("SNP1|SNP2", colnames(plot_dat)))){
       return(NULL)
     }
     
-    # If user choses Freq data type, convert
+    # If user choses Freq data type, convert data type
     if(data_type()=="Freq" & input$showmissing){
       plot_dat = allele_freq(plot_dat)
     }else if(data_type()=="Freq" & !input$showmissing){
@@ -241,9 +310,12 @@ server = function(input, output, session){
     return(plot_dat)
   })
   
-  # MAIN CHART FUNCTION
+  # MAIN PLOT FUNCTION - Plot charts on the map based on filtered data
   observe({
+    # Retrieve filtered data
     subset_dat = filteredData()
+    
+    # If filtered data is NULL, clear map and return
     if(is.null(subset_dat)){
       leafletProxy("map") %>%
         clearMinicharts()
@@ -255,9 +327,10 @@ server = function(input, output, session){
       return()
     }
     
-    # Print labels
+    # Print labels based on toggle/cluster options
     if(label_show()){
       switch(input$grouping_var,
+             # If no clustering variable is chosen, the Lat/Long coordinates of each "group" will be shown as the labels
              "None"={
                leafletProxy("map") %>% 
                  clearMarkers() %>% 
@@ -266,6 +339,7 @@ server = function(input, output, session){
                                      labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, 
                                                                  direction = "bottom", offset = c(0,5)))
              },
+             # If country is chosen, names of the countries will be shown
              "Country"={
                leafletProxy("map") %>% 
                  clearMarkers() %>% 
@@ -273,6 +347,7 @@ server = function(input, output, session){
                                      labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, 
                                                                  direction = "bottom", offset = c(0,5)))
              },
+             # If distance is chosen, cluster numbers will be shown
              "Distance"={
                leafletProxy("map") %>% 
                  clearMarkers() %>% 
@@ -282,7 +357,7 @@ server = function(input, output, session){
              })
     }
     
-    # Print map
+    # Update map with charts using a proxy to avoid re-rendering the entire map every time
     leafletProxy("map") %>% 
       clearMinicharts() %>% 
       addMinicharts(
@@ -298,6 +373,7 @@ server = function(input, output, session){
         height = plot_size()
       )
     
+    # Add legend manually if there is only one category in the data
     if(length(c(colnames(subset_dat)[!colnames(subset_dat) %in% disregard]))==1 && legend_show()){
       leafletProxy("map") %>% 
         addLegend(legend_pos(),labels=c(colnames(subset_dat)[!colnames(subset_dat) %in% disregard]),
@@ -306,17 +382,22 @@ server = function(input, output, session){
     }
   })
   
-  # Summary plot generation
+  # Summary plot generation function - observe change in tabs on absolutepanel
   observeEvent(input$mainPanel_tabs, {
+    
+    # Return NULL if the "Controls" tab is selected
     if(input$mainPanel_tabs=="Controls"){
-      return()
+      return(NULL)
     }
     
+    # Reset old plots while new plot is being rendered
     output$total_summary_SNP1 = renderPlotly({})
     output$total_summary_SNP2 = renderPlotly({})
     
+    # Retrieve window size from user input
     window_size = as.numeric(input$windowsize)
     
+    # Create a dataframe to be used as the framework for storing plot data based on data type and number of SNPs 
     switch(input$data_type,
            "Count"={
              if(twoSNPs()){
@@ -351,69 +432,76 @@ server = function(input, output, session){
              }
            })
     
+    # Define a new dataframe to append plot data to
     final_df = data.frame()
+    
+    # Create a sequence of "start" times based on the date range and time step
     range_vec = seq(from=time_range[1], to=time_range[2], by=-time_step)
+    
+    # Create a progress bar since data processing takes a little bit of time 
     withProgress(message = "Generating plot", value=0, min=0, max=length(range_vec),{
+      # For loop to loop through all of the time steps 
       for(start_time in range_vec){
+        # Increment progress bar by 1
         incProgress(1)
+        
+        # Define "end" time based on start time and window size
         end_time = start_time - window_size
+        
+        # Query/Fetch relevant samples/SNPs from SQL database based on start/end times
         subset_dat = filter_samples(start_time, end_time)
         
+        # Reformat data and summarize by sumation of all clusters (Currently only global summary is possible)
         subset_dat = subset_dat %>%
           pivot_longer(-c(Cluster, Country, Lat, Long), names_to = c("SNP", "Type"), names_sep = "_", values_to = "Count") %>%
           group_by(SNP, Type) %>%
           summarise(n=sum(Count))
- 
+        
+        # If showing missing data is toggled off, remove missing data/remove "missing" category from the data structure
         if(!input$showmissing){
           subset_dat = subset_dat %>% 
             filter(Type!="Missing")
         }
-        
-        if(nrow(subset_dat)==0){
-          next
-        }
-        
-        print(subset_dat)
-        
-        # If user choses Freq data type, convert
-        if(data_type()=="Freq" & input$showmissing){
-          
-          subset_dat = subset_dat %>% 
-            pivot_wider(names_from = c(SNP, Type), values_from = n)
-          
-          subset_dat = allele_freq(subset_dat)
-          
-          subset_dat = subset_dat %>%
-            pivot_longer(everything(), names_to = c("SNP", "Type"), names_sep = "_", values_to = "n")
-          
-        }else if(data_type()=="Freq" & !input$showmissing){
-          
-          subset_dat = subset_dat %>% 
-            pivot_wider(names_from = c(SNP, Type), values_from = n)
-          
-          subset_dat = allele_freq_no_missing(subset_dat)
-          
-          subset_dat = subset_dat %>%
-            pivot_longer(everything(), names_to = c("SNP", "Type"), names_sep = "_", values_to = "n")
-        }
-        
         if(!input$showmissing){
           figure_table = figure_table %>% 
             filter(Type!="Missing")
         }
         
+        # If there is no data left after removal, move to the next time step
+        if(nrow(subset_dat)==0){
+          next
+        }
+        
+        # If user chooses Freq data type, convert data type
+        subset_dat = subset_dat %>% 
+          pivot_wider(names_from = c(SNP, Type), values_from = n)
+        
+        if(data_type()=="Freq" & input$showmissing){
+          subset_dat = allele_freq(subset_dat)
+        }else if(data_type()=="Freq" & !input$showmissing){
+          subset_dat = allele_freq_no_missing(subset_dat)
+        }
+        
+        subset_dat = subset_dat %>%
+          pivot_longer(everything(), names_to = c("SNP", "Type"), names_sep = "_", values_to = "n")
+        
+        # Merge the data to the data structure and add a column for time 
         temp_table = figure_table %>%
           merge(subset_dat, by=c("SNP", "Type"), all=TRUE) %>% 
           mutate(Time=start_time)
         
+        # All NA values created during the merge step is changed to 0        
         temp_table[is.na(temp_table)]=0
         
+        # Append rows to the final dataframe 
         final_df = rbind(final_df, temp_table)
       } # For loop
     }) # With progress
     
+    # Split final_df into SNP1 and SNP2 final for plotting
     SNP1_final = final_df[final_df$SNP == "SNP1", ]
     
+    # Render plotly scatter plot based on final_df
     output$total_summary_SNP1 = renderPlotly({
       plot_ly( x=SNP1_final$Time, y=SNP1_final$n, color=as.factor(SNP1_final$Type), type="scatter", mode="lines") %>%
       layout(title="SNP1",
@@ -422,8 +510,11 @@ server = function(input, output, session){
              hovermode="x unified")
     })
     
+    # Split final_df into SNP1 and SNP2 final for plotting
     if(twoSNPs()){
       SNP2_final = final_df[final_df$SNP == "SNP2", ]
+      
+      # Render plotly scatter plot based on final_df
       output$total_summary_SNP2 = renderPlotly({
         plot_ly( x=SNP2_final$Time, y=SNP2_final$n, color=as.factor(SNP2_final$Type), type="scatter", mode="lines") %>%
           layout(title="SNP2",
@@ -435,7 +526,7 @@ server = function(input, output, session){
     
   }, ignoreInit = TRUE)
   
-  # No samples to plot -> plot empty map
+  # No samples to plot -> return a dataframe with all of the SNPs as missing
   no_samples = function(){
     if(twoSNPs()){
       plot_dat = plot_group() %>% 
@@ -450,7 +541,10 @@ server = function(input, output, session){
     return(plot_dat)
   }
   
+  # Main function for querying/processing sample data from sample_meta
+  # This function is used to identify samples that appear within a given time window
   filter_samples = function(start_time, end_time){
+    # Query and identify samples within given time window from SQL database
     db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta WHERE CAST(DateMean AS INTEGER) <= %s AND CAST(DateMean AS INTEGER) >=%s", start_time, end_time)
     res = dbSendQuery(db, query)
@@ -458,14 +552,14 @@ server = function(input, output, session){
     dbClearResult(res)
     dbDisconnect(db)
     
-    # Query and retrieve appropriate SNP data
+    # Query and retrieve appropriate SNP data with the identified samples 
     if(nrow(samples_to_plot)==0){
       plot_dat = no_samples()
     }else{
       plot_dat = query_main(samples_to_plot) 
     }
     
-    # Pivot data to be wider
+    # Pivot data to be wider - This is the format the leaflet.minicharts packages needs to plot 
     plot_dat = plot_dat %>% 
       pivot_longer(-c(Cluster, Country, Lat, Long)) %>% 
       count(Cluster, Country, Lat, Long, name, value) %>% 
@@ -477,9 +571,12 @@ server = function(input, output, session){
   }
 
   # Main function for querying/processing SNP data from main
+  # This function is used to retrieve the actual allele/genotype data for given SNP IDs and samples
   query_main = function(samples_to_plot){
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     
+    # Query and retrieve appropriate SNP data with the identified samples
+    # The retrieved data is reformatted and merged with cluster information
+    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
     sample_list = paste0(sprintf("`%s`", samples_to_plot$MasterID), collapse=",")
     
     if(twoSNPs()){
@@ -556,33 +653,42 @@ server = function(input, output, session){
   
   # Allele frequency calculations
   
+  # ** Note ** allele_freq(dat) and allele_freq_no_missing(dat) are almost identical, but they could not be merged into a
+  # single function without major restructuring/rewriting of the code. Possible optimization for future versions. 
   allele_freq_no_missing = function(dat){
     uniqchars <- function(x) unique(unlist(strsplit(x, "")))
     switchchr <- function(x) paste(unlist(strsplit(x,""))[2],unlist(strsplit(x,""))[1], sep="")
     SNP1_alleles = c()
     SNP2_alleles = c()
     
+    # Identify different genotypes present in the data
     col_names_list = colnames(dat)[!colnames(dat) %in% disregard]
     alleles = str_split(col_names_list, "_", simplify = TRUE) %>% data.frame()
     colnames(alleles) = c("SNP", "Genotype")
     
-    
+    # Disregard "Missing" types for now - there shouldn't be any but just in case
     alleles = alleles[!alleles$Genotype=="Missing",]
     
     if(twoSNPs()){
+      # Identify all alleles for SNP1 and SNP2 present in the data
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
       SNP2_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP2"])
       
+      # Calculate total number of individuals for SNP1 and SNP2
       dat = dat %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1")))) %>% 
         mutate(SNP2_total=rowSums(select(.,contains("SNP2"))))
       
+      # Separate into SNP1 and SNP2
       SNP1_tab = dat %>% 
         select(contains("SNP1"))
       
       SNP2_tab = dat %>% 
         select(contains("SNP2"))
       
+      # Calculate allele frequencies for SNP1
+      # If there is no data, do nothing, otherwise, calculate allele frequencies based on total number of individuals
+      # Ex. f(A) = (f(AA) + f(AB | BA)/2 + f(BB)) / total number of individuals
       if(length(SNP1_alleles)==0){
         
       }else if(length(SNP1_alleles)==1){
@@ -602,6 +708,7 @@ server = function(input, output, session){
           mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP1_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP1_total)
       }
       
+      # Calculate allele frequencies for SNP2
       if(length(SNP2_alleles)==0){
         
       }else if(length(SNP2_alleles)==1){
@@ -621,6 +728,7 @@ server = function(input, output, session){
           mutate({{col_name2}}:=(eval(parse(text={{allele2_name}}))+((SNP2_total - eval(parse(text={{allele1_name}})) - eval(parse(text={{allele2_name}})))/2))/SNP2_total)
       }
       
+      # Reformat and add frequency data to data table for plotting
       SNP1_tab = SNP1_tab %>% 
         mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
       SNP2_tab = SNP2_tab %>% 
@@ -633,6 +741,7 @@ server = function(input, output, session){
         select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$|^SNP[12]_Missing$"))
       
     }else{
+      # Do the same as above, just for one SNP 
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
       
       dat = dat %>% 
@@ -670,9 +779,12 @@ server = function(input, output, session){
       
     }
     
+    # Return the data table for plotting
     return(dat)
   }
   
+  # This function is almost identical to allele_freq_no_missing(dat) except this function will calculate frequencies
+  # while accounting for missing data
   allele_freq = function(dat){
     uniqchars <- function(x) unique(unlist(strsplit(x, "")))
     switchchr <- function(x) paste(unlist(strsplit(x,""))[2],unlist(strsplit(x,""))[1], sep="")
@@ -800,9 +912,13 @@ server = function(input, output, session){
   }
   
   # Functions for distance based clustering
-  
-  # Create distance matrix from distM
+
+  # Create distance matrix from distM - which has been retrieved from the SQL database in global.R
   dist_Matrix = function(dat){
+    # A symmetrical distance matrix is created from all of the given SampleIDs from the input dataframe
+    # The distances between each samples are already calculated and can be retrieved from distM
+    # The distances were calculated using the haversine formula with a separate script
+    
     sample_dist= dat %>% 
       expand(MasterID, MasterID) %>% 
       rename("ID1"="MasterID...1", "ID2"="MasterID...2") %>% 
@@ -823,6 +939,9 @@ server = function(input, output, session){
   
   # Hierarchical clustering based on distance threshold
   cluster_Samples = function(dat){
+    # This function clusters samples based on the distance threshold set by the user. 
+    # The hierarchichal clustering function takes the distance matrix as input and will produce a cluster tree
+    # This tree can then be used to infer the different clusters for each samples
     if(nrow(dat)>1){
       distances = dist_Matrix(dat)
       cluster_tree = hclust(as.dist(distances))
@@ -844,31 +963,27 @@ server = function(input, output, session){
     return(dat)
   }
   
-  # Calculate centroids of clusters
+  # Calculate centroid coordinates of clusters
+  # This function calculates simple geometric means for the Lat/Long coordinates of each samples in each cluster to
+  # calculate the centroid coordinates for each clusters. 
   calc_Centroid = function(dat){
-    if(length(unique(dat$Cluster))==1){
-      cluster_centroids = data.frame(matrix(NA, nrow=1,ncol=3))
-      colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
-
-      cluster_centroids$Cluster = 1
-      cluster_centroids$Lat = dat$Lat[1]
-      cluster_centroids$Long = dat$Long[1]
-      
-      return(cluster_centroids)
-    }
-    
+    # Reformat data
     cluster_groups = dat %>% 
       group_by(Cluster, Lat, Long) %>% 
       summarise() %>% 
       sapply(as.numeric) %>% 
       data.frame()
     
+    # Create a new dataframe to store the centroid coordinates
     cluster_centroids = data.frame(matrix(NA, nrow=length(unique(cluster_groups$Cluster)),ncol=3))
     colnames(cluster_centroids) = c("Cluster", "Lat", "Long")
     
+    # Add cluster numbers into the new dataframe
     cluster_centroids$Cluster = unique(cluster_groups$Cluster)
     
+    # Run a for loop to iterate through each unique cluster number
     for(cluster in unique(cluster_groups$Cluster)){
+      # Calculate mean lat/long per cluster and store into dataframe
       lat_c = sum(cluster_groups$Lat[cluster_groups$Cluster==cluster])/length(cluster_groups$Lat[cluster_groups$Cluster==cluster])
       long_c = sum(cluster_groups$Long[cluster_groups$Cluster==cluster])/length(cluster_groups$Long[cluster_groups$Cluster==cluster])
       
@@ -879,15 +994,20 @@ server = function(input, output, session){
     return(cluster_centroids)
   } 
   
-  # ===============================================
+  # =======================================================================================================================================
   # Data explorer tab
+  # =======================================================================================================================================
   
+  # Reactive variable for name of dataset to use
   exploreDatabase = reactive({
     input$dataset
   })
   
+  # Render UI reactive to user input
   output$exploreUI = renderUI({
+    
     switch(input$exploreData,
+           # If the user chooses "Samples", display "Countries" and "Time range" options 
            "Samples"={
              db = dbConnect(SQLite(), "data/reich_v50.sqlite")
              query = "SELECT DISTINCT Country FROM sample_meta"
@@ -909,6 +1029,7 @@ server = function(input, output, session){
                column(width=6, checkboxGroupInput("exploreColumns", "Columns", choices=NULL, inline=TRUE))
              )
            },
+           # If the user chooses "SNPs", display "Chromosome" options
            "SNPs"={
              db = dbConnect(SQLite(), "data/reich_v50.sqlite")
              query = "SELECT DISTINCT CHR FROM SNP_meta"
@@ -924,17 +1045,21 @@ server = function(input, output, session){
                column(width=4, checkboxGroupInput("exploreColumns", "Columns", choices=NULL, inline=TRUE))
              )
            })
-  }) # Render UI
+  }) # /Render UI
   
+  # Reactive data filter function for data explorer
   filter_explore = reactive({
+    
+    # Return NULL if the Data Explorer tab isn't active
     if(input$navbar=="Map"){
-      return()
+      return(NULL)
     }
     
+    # Retrieve relevant information from the SQL database with the user defined options
     switch(input$exploreData,
            "Samples"={
              if(is.null(input$exploreCountry)){
-               return()
+               return(NULL)
              }
              countries_query = paste("'", input$exploreCountry, "'", collapse=" OR Country==", sep="")
              db = dbConnect(SQLite(), "data/reich_v50.sqlite")
@@ -945,7 +1070,7 @@ server = function(input, output, session){
            },
            "SNPs"={
              if(is.null(input$exploreChr)){
-               return()
+               return(NULL)
              }
              chr_query = paste("'", input$exploreChr, "'", collapse=" OR CHR==", sep="")
              db = dbConnect(SQLite(), "data/reich_v50.sqlite")
@@ -957,17 +1082,20 @@ server = function(input, output, session){
     dbClearResult(res)
     dbDisconnect(db)
     
+    # The columns checkbox group input is updated to reflect the columns present in the current data being displayed
     updateCheckboxGroupInput(session, "exploreColumns", choices=colnames(data_table), selected=colnames(data_table), inline=TRUE)
     
     return(data_table)
-  })# %>% debounce(500)
+  })
   
+  # Reactive table data to retrieve/filter data to be displayed
   table_data = reactive({
     data_table = filter_explore()
     data_table = data_table[,input$exploreColumns]
     return(data_table)
   })
   
+  # Render data table with the filtered data  
   output$table1=renderDataTable(table_data())
   
 } # /server
