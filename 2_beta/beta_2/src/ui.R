@@ -124,13 +124,44 @@ navbarPage("SNP Tracker", id="navbar",
                                         ), # /controls tab panel
                                         tabPanel("Summary",
                                           fluidPage(
+                                            h2("Overall summary"),
                                             fluidRow(
-                                              plotlyOutput("total_summary")
-                                            ) # /fluid row
+                                              column(width=12, plotlyOutput("total_summary_SNP1", height=200),
+                                                     style='padding-left:5px; padding-right:5px; padding-top:5px; padding-bottom:1px')
+                                            ), # /fluid row
+                                            conditionalPanel(
+                                              condition="input.num_SNP==2",
+                                              fluidRow(
+                                                column(width=12, plotlyOutput("total_summary_SNP2", height=200),
+                                                       style='padding-left:5px; padding-right:5px; padding-top:10px; padding-bottom:1px')
+                                              ) # /fluid row
+                                            ), # /conditional panel
+                                            # fluidRow(
+                                            #   selectInput("summary_choices", "Clusters",
+                                            #               choices = c("UK", "US", "Sweden"), multiple=TRUE)
+                                            # ) #/fluid row
                                           ) # /fluid page
                                         ) # /summary tab panel
                                       ) # /tabset panel
                                       ) # /absolute panel
                         ) # /div outer
-                    ) # /main tab panel
+                    ), # /Map tab
+           tabPanel("Data explorer",
+                    fluidPage(
+                      fluidRow(
+                        column(width=2, selectInput("dataset", "Dataset", choices=sql_datasets), offset = 0,
+                               style='padding-left:50px; padding-right:5px; padding-top:10px; padding-bottom:5px'),
+                        column(width=2, selectInput("exploreData", "Data type", choices=c("Samples", "SNPs")), offset = 0,
+                               style='padding-left:0px; padding-right:5px; padding-top:10px; padding-bottom:5px'),
+                        column(width=8, uiOutput("exploreUI"), offset = 0,
+                               style='padding-left:0px; padding-right:5px; padding-top:10px; padding-bottom:5px')
+                      ),
+                      # fluidRow(
+                      #   column(width=12, checkboxGroupInput("exploreColumns", "Columns", choices=NULL))
+                      # ),
+                      fluidRow(
+                        column(width=12, dataTableOutput("table1"))
+                      )
+                    )
+                    ) # /Data explorer tab
            ) # /navbar page

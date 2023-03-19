@@ -132,7 +132,7 @@ server = function(input, output, session){
   # Initial summary plot render
   output$total_summary = renderPlotly({
     fig_total = plot_ly(type="scatter", mode="lines") %>% 
-      layout(title="Total", xaxis=list(autorange="reversed"))
+      layout(title="Total", xaxis=list(range=c(time_range[0],time_range[1])))
   })
   
   # Listen to CHR1 choice 
@@ -223,6 +223,11 @@ server = function(input, output, session){
     
     plot_dat = filter_samples(start_time, end_time)
     
+    # If user choses Freq data type, convert
+    if(data_type()=="Freq"){
+      plot_dat = allele_freq(plot_dat)
+    }
+    
     return(plot_dat)
   })
   
@@ -291,15 +296,16 @@ server = function(input, output, session){
     }
   })
   
-  observe({
-    subset_dat = filteredData()
+  # Summary plot generation
+  observeEvent(input$mainPanel_tabs, {
+    if(input$mainPanel_tabs=="Controls"){
+      return()
+    }
     
-    if(is.null(subset_dat)){
-      return()
-    }
-    if(nrow(subset_dat)==0){
-      return()
-    }
+    output$total_summary_SNP1 = renderPlotly({})
+    output$total_summary_SNP2 = renderPlotly({})
+    
+    window_size = as.numeric(input$windowsize)
     
     switch(input$data_type,
            "Count"={
@@ -335,23 +341,63 @@ server = function(input, output, session){
              }
            })
     
-    print(figure_table)
+    final_df = data.frame()
+    range_vec = seq(from=time_range[1], to=time_range[2], by=-time_step)
+    withProgress(message = "Generating plot", value=0, min=0, max=length(range_vec),{
+      for(start_time in range_vec){
+        incProgress(1)
+        end_time = start_time - window_size
+        subset_dat = filter_samples(start_time, end_time)
+        
+        subset_dat = subset_dat %>%
+          pivot_longer(-c(Cluster, Country, Lat, Long), names_to = c("SNP", "Type"), names_sep = "_", values_to = "Count") %>%
+          group_by(SNP, Type) %>%
+          summarise(n=sum(Count))
+        
+        # If user choses Freq data type, convert
+        if(data_type()=="Freq"){
+          
+          subset_dat = subset_dat %>% 
+            pivot_wider(names_from = c(SNP, Type), values_from = n)
+          
+          subset_dat = allele_freq(subset_dat)
+          
+          subset_dat = subset_dat %>%
+            pivot_longer(everything(), names_to = c("SNP", "Type"), names_sep = "_", values_to = "n")
+        }
+        
+        temp_table = figure_table %>%
+          merge(subset_dat, by=c("SNP", "Type"), all=TRUE) %>% 
+          mutate(Time=start_time)
+        
+        temp_table[is.na(temp_table)]=0
+        
+        final_df = rbind(final_df, temp_table)
+      } # For loop
+    }) # With progress
     
-    subset_dat = subset_dat %>% 
-      pivot_longer(-c(Cluster, Country, Lat, Long), names_to = c("SNP", "Type"), names_sep = "_", values_to = "Count") %>% 
-      group_by(SNP, Type) %>% 
-      summarise(n=sum(Count))
+    SNP1_final = final_df[final_df$SNP == "SNP1", ]
     
-    figure_table = figure_table %>% 
-      merge(subset_dat, by=c("SNP", "Type"), all=TRUE)
+    output$total_summary_SNP1 = renderPlotly({
+      plot_ly( x=SNP1_final$Time, y=SNP1_final$n, color=as.factor(SNP1_final$Type), type="scatter", mode="lines") %>%
+      layout(title="SNP1",
+             xaxis=list(title="Year (BP)", autorange="reversed", dtick=2500, tickmode="linear", tickformat="digit"),
+             yaxis=list(title=input$data_type),
+             hovermode="x unified")
+    })
     
-    figure_table[is.na(figure_table)]=0
+    if(twoSNPs()){
+      SNP2_final = final_df[final_df$SNP == "SNP2", ]
+      output$total_summary_SNP2 = renderPlotly({
+        plot_ly( x=SNP2_final$Time, y=SNP2_final$n, color=as.factor(SNP2_final$Type), type="scatter", mode="lines") %>%
+          layout(title="SNP2",
+                 xaxis=list(title="Year (BP)", autorange="reversed", dtick=2500, tickmode="linear", tickformat="digit"),
+                 yaxis=list(title=input$data_type),
+                 hovermode="x unified")
+      })
+    }
     
-    print(figure_table)
-    
-    plotlyProxy("total_summary", session) %>%
-      plotlyProxyInvoke("extendTraces", x=as.numeric(input$timeline), y=figure_table$n, color=figure_table$SNP, line_dash=figure_table$Type)
-  })
+  }, ignoreInit = TRUE)
   
   # No samples to plot -> plot empty map
   no_samples = function(){
@@ -390,11 +436,6 @@ server = function(input, output, session){
       pivot_wider(names_from = c(name, value), values_from = n) %>%
       replace(is.na(.), 0) %>% 
       relocate(sort(names(.)))
-    
-    # If user choses Freq data type, convert
-    if(data_type()=="Freq"){
-      plot_dat = allele_freq(plot_dat)
-    }
     
     return(plot_dat)
   }
@@ -556,7 +597,7 @@ server = function(input, output, session){
         mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
       
       dat = dat %>% 
-        select(Cluster, Country, Lat, Long) %>%
+        select(any_of(c("Cluster", "Country", "Lat", "Long"))) %>%
         cbind(SNP1_tab) %>% 
         cbind(SNP2_tab) %>% 
         select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$|^SNP[12]_Missing$"))
@@ -596,7 +637,7 @@ server = function(input, output, session){
         mutate(across(everything(), ~replace(.x, is.nan(.x), 0)))
       
       dat = dat %>% 
-        select(Cluster, Country, Lat, Long) %>% 
+        select(any_of(c("Cluster", "Country", "Lat", "Long"))) %>% 
         cbind(SNP1_tab) %>% 
         select(matches("Country|Cluster|Lat|Long|MasterID|^SNP[12]_[ACTG]$|^SNP[12]_Missing$"))
       
@@ -683,5 +724,97 @@ server = function(input, output, session){
     }
     
     return(cluster_centroids)
-  }
-}
+  } 
+  
+  # ===============================================
+  # Data explorer tab
+  
+  exploreDatabase = reactive({
+    input$dataset
+  })
+  
+  output$exploreUI = renderUI({
+    switch(input$exploreData,
+           "Samples"={
+             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             query = "SELECT DISTINCT Country FROM sample_meta"
+             res = dbSendQuery(db, query)
+             country_choices = dbFetch(res)
+             dbClearResult(res)
+             dbDisconnect(db)
+             
+             
+             country_choices = country_choices[order(country_choices$Country),]
+             
+             fluidRow(
+               column(width=2, selectInput("exploreCountry", "Country", choices=country_choices)),
+               column(width=3, sliderTextInput("exploreRange", "Time range", 
+                                               choices=seq(from=time_range[1], to=time_range[2], by=-1),
+                                               selected = c(time_range[1], time_range[2]),
+                                               width="100%",
+                                               post=" BP")),
+               column(width=7, checkboxGroupInput("exploreColumns", "Columns", choices=NULL, inline=TRUE))
+             )
+           },
+           "SNPs"={
+             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             query = "SELECT DISTINCT CHR FROM SNP_meta"
+             res = dbSendQuery(db, query)
+             chr_choices = dbFetch(res)
+             dbClearResult(res)
+             dbDisconnect(db)
+             
+             chr_choices = chr_choices[order(as.numeric(chr_choices$CHR)),]
+             
+             fluidRow(
+               column(width=8, selectInput("exploreChr", "Chromosome", choices=chr_choices)),
+               column(width=4, checkboxGroupInput("exploreColumns", "Columns", choices=NULL, inline=TRUE))
+             )
+           })
+  }) # Render UI
+  
+  filter_explore = reactive({
+    if(input$navbar=="Map"){
+      return()
+    }
+    
+    switch(input$exploreData,
+           "Samples"={
+             if(is.null(input$exploreCountry)){
+               return()
+             }
+             
+             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             query = "SELECT * FROM sample_meta"
+             query = sprintf("SELECT * FROM sample_meta WHERE CAST(DateMean AS INTEGER) <= %s AND CAST(DateMean AS INTEGER) >=%s AND Country=='%s'", 
+                             input$exploreRange[1], input$exploreRange[2], input$exploreCountry)
+             res = dbSendQuery(db, query)
+           },
+           "SNPs"={
+             if(is.null(input$exploreChr)){
+               return()
+             }
+             
+             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             query = sprintf("SELECT * FROM SNP_meta WHERE CHR=='%s'", input$exploreChr)
+             res = dbSendQuery(db, query)
+           })
+
+    data_table = dbFetch(res)
+    dbClearResult(res)
+    dbDisconnect(db)
+    
+    updateCheckboxGroupInput(session, "exploreColumns", choices=colnames(data_table), selected=colnames(data_table), inline=TRUE)
+    
+    return(data_table)
+  })# %>% debounce(500)
+  
+  table_data = reactive({
+    data_table = filter_explore()
+    data_table = data_table[,input$exploreColumns]
+    return(data_table)
+  })
+  
+  output$table1=renderDataTable(table_data())
+  
+} # /server

@@ -33,3 +33,5 @@ Diverging = c("Spectral", "RdYlGn", "RdGy", "RdBu", "PuOr", "PRGn", "PiYG", "BrB
 color_palettes = list("Sequential"=Sequential, "Qualitative"=Qualitative, "Divergent"=Diverging)
 
 disregard = c("Country", "Lat", "Long", "Cluster", "MasterID")
+
+sql_datasets = c("reich_v50")
