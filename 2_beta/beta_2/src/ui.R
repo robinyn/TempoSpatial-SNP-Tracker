@@ -5,6 +5,7 @@ library(leaflet)
 library(leaflet.minicharts)
 library(shinyWidgets)
 library(RSQLite)
+library(plotly)
 
 navbarPage("SNP Tracker", id="navbar", 
            tabPanel("Map", 
@@ -40,7 +41,7 @@ navbarPage("SNP Tracker", id="navbar",
                                                      style='padding-left:5px; padding-right:1px; padding-top:0px; padding-bottom:0px'),
                                               column(width=2, 
                                                      htmlOutput("SNP1_alleles"),
-                                                     style='padding-left:6px; padding-right:18px; padding-top:23px; padding-bottom:10px')
+                                                     style='padding-left:6px; padding-right:17px; padding-top:23px; padding-bottom:10px')
                                             ), # /fluid row
                                             
                                             conditionalPanel(
@@ -52,7 +53,7 @@ navbarPage("SNP Tracker", id="navbar",
                                                        style='padding-left:2px; padding-right:1px; padding-top:1px; padding-bottom:0px'),
                                                 column(width=2, 
                                                        htmlOutput("SNP2_alleles"),
-                                                       style='padding-left:6px; padding-right:18px; padding-top:23px; padding-bottom:10px')
+                                                       style='padding-left:6px; padding-right:17px; padding-top:23px; padding-bottom:10px')
                                               ) # /fluid row
                                             ), # /conditional panel
                                             
@@ -79,10 +80,15 @@ navbarPage("SNP Tracker", id="navbar",
                                               ) # /fluid row
                                             ), # /conditional panel
                                             fluidRow(
-                                              column(width=12,
+                                              column(width=6,
                                                 sliderInput("timestep", label="Time step", 
                                                             width="100%", min=100, max=5000, value=time_step, step=100, ticks=TRUE, post=" years"),
                                                 style="margin-top:-10px;"
+                                              ),
+                                              column(width=6,
+                                                     sliderInput("windowsize", label="Window size", 
+                                                                 width="100%", min=100, max=5000, value=time_step, step=100, ticks=TRUE, post=" years"),
+                                                     style="margin-top:-10px;"
                                               )
                                             ), # /fluid row
                                             fluidRow(
@@ -116,7 +122,13 @@ navbarPage("SNP Tracker", id="navbar",
                                             ) # /fluid row
                                           ) # /fluid page
                                         ), # /controls tab panel
-                                        tabPanel("Summary")
+                                        tabPanel("Summary",
+                                          fluidPage(
+                                            fluidRow(
+                                              plotlyOutput("total_summary")
+                                            ) # /fluid row
+                                          ) # /fluid page
+                                        ) # /summary tab panel
                                       ) # /tabset panel
                                       ) # /absolute panel
                         ) # /div outer
