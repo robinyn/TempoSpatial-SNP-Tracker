@@ -118,15 +118,14 @@ Once all of the necessary files and packages have been downloaded and installed,
 
 ```R
 # Replace the example path with the actual path name to the root directory for the app
-
 shiny::runApp("Absolute/Path/To/Root/Directory", launch.browser=TRUE)
 ```
 
 If the following lines appear after running the command and no new window opens, copy the address and manually open the application in your browser of choice.
 
 ```shell
-Listening on http://127.0.0.1:3964
-Browsing http://127.0.0.1:3964
+Listening on http://102.0.0.1:9132  # The address may be different
+Browsing http://102.0.0.1:9132
 ```
 
 ## 5. Using the application
