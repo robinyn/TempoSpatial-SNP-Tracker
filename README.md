@@ -119,7 +119,7 @@ Once all of the necessary files and packages have been downloaded and installed,
 ```R
 # Replace the example path with the actual path name to the root directory for the app
 
-shiny::runApp("Absolute/Path/To/Root/Directory", launch.browser=FALSE)
+shiny::runApp("Absolute/Path/To/Root/Directory", launch.browser=TRUE)
 ```
 
 If the following lines appear after running the command and no new window opens, copy the address and manually open the application in your browser of choice.
@@ -246,7 +246,7 @@ Rscript giscoR_getCountry.R
 
 ### 6.7. Import distance matrix to database
 
-Use SQLite again to import the two new TSV files (***country_cords.tsv***, ***distanceMatrix.tsv***) into the database.
+Use SQLite again to import the two new TSV files (***country_cords.tsv***, ***distanceMatrix.tsv***) into the database. Please make sure the table names are the same as those provided here.
 
 ```shell
 # Start SQLite
