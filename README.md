@@ -106,3 +106,36 @@ Listening on http://127.0.0.1:3964
 Browsing http://127.0.0.1:3964
 ```
 
+## 5. Using the application
+
+The first page when running the application is the **Interactive Map** page with a panel on the left hand side called the **Controls** panel. This is where all of the options for subsetting, clustering, and visualizing the data can be selected and modified. The application is relatively intuitive. However, the following section explains some of the parameters users can modify.
+
+| Parameter | Explanation | Options |
+| --- | --- | --- |
+| No. of SNPs | Number of SNPs to track | 1 / 2 |
+| Plot type | Type of chart to plot on the map | Pie chart / Bar chart |
+| Data type | Type of data to plot | Count / Frequency |
+| Chromosome | Chromosome number where the SNP to track is located | Depends on data |
+| Show labels | Toggle to show or hide labels of clusters | On / Off |
+| Show missing data | Toggle to account for samples that have no genotyping information for a given SNP | On / Off |
+| Grouping variables | Variable to cluster the samples by | None / Country / Distance |
+| *Distance* | Threshold in kilometers for clustering samples | 0~5000 km|
+| Time step | Time in years to move in each iteration | 100~5000 years |
+| Window size | Window of time in years to use when subsetting samples | 100~5000 years |
+| Timeline | Timeline to select the "starting time" for the window (the application will take the time selected here and the window size to calculate the time range for subsetting the samples) | Depends on data |
+| Palettes | RColorBrewer palette type to use | Qualitative / Sequential / Divergent |
+| Colors | RColorBrewewr palette to use | [link](https://r-graph-gallery.com/38-rcolorbrewers-palettes.html) |
+| Legend | Toggle and change location of the legend | Off / Top right(TR) / Top left (TL) / Bottom right (BR) / Bottom left (BL) |
+| Opactiy | Control how transparent the plots will be | 0~100% |
+| Size | Control the size of the plots | 1~100% |
+
+The **Summary** tab next to the controls panel will automatically generate summary plots based on the options selected in the controls panel. There are no options to modify the graphical options of the plots generated in the current version, but will be added in future updates.
+
+The **Data Explorer** can be used to easily navigate through and examine the raw data loaded into the application. Modifying the various options on the top panel will filter the data to be displayed on the data table below.
+
+## 6. Inputting new data
+
+Unfortunately, the current version of TSST does not officially support adding new data other than the dataset preloaded in the application. However, it is possible to generate your own SQLite database file using the scripts available in this repo.
+
+**Disclaimer: This is not an officially supported function of TSST at the moment. Please not that the scripts may not function as intended when using your own data.**
+
