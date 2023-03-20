@@ -15,7 +15,8 @@ library(RSQLite)
 setwd(".")
 
 # Create SQL database connection 
-db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+dbPath = "reich_v50.sqlite"
+db = dbConnect(SQLite(), dbPath)
 
 # Query max/min dates from the database 
 res = dbSendQuery(db, "SELECT MAX(CAST(DateMean AS INTEGER)), MIN(CAST(DateMean AS INTEGER)) FROM sample_meta")

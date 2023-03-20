@@ -114,7 +114,7 @@ server = function(input, output, session){
     SNP1_choice = input$SNP_choice1
     
     # Relevant REF/ALT allele information is queried and fetched from SQL database
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP1_choice))
     SNP1_alleles = dbFetch(res)
     dbClearResult(res)
@@ -136,7 +136,7 @@ server = function(input, output, session){
     SNP2_choice = input$SNP_choice2
     
     # Relevant REF/ALT allele information is queried and fetched from SQL database
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     res = dbSendQuery(db, sprintf("SELECT REF, ALT FROM SNP_meta WHERE SNP_ID='%s'", SNP2_choice))
     SNP2_alleles = dbFetch(res)
     dbClearResult(res)
@@ -180,7 +180,7 @@ server = function(input, output, session){
     CHR_ID = input$CHR_choice1
     
     # Appropriate SNP data for the selected chromosome is queried and fetched from SQL database
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     res = dbSendQuery(db, sprintf("SELECT SNP_ID FROM SNP_meta WHERE CHR=%s", CHR_ID))
     SNP_selection = dbFetch(res)
     dbClearResult(res)
@@ -197,7 +197,7 @@ server = function(input, output, session){
     CHR_ID = input$CHR_choice2
     
     # Appropriate SNP data for the selected chromosome is queried and fetched from SQL database
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     res = dbSendQuery(db, sprintf("SELECT SNP_ID FROM SNP_meta WHERE CHR=%s", CHR_ID))
     SNP_selection = dbFetch(res)
     dbClearResult(res)
@@ -228,7 +228,7 @@ server = function(input, output, session){
   # Reactive cluster_table - All samples are clustered based on user input and assigned a cluster number
   cluster_table = reactive({
     # MasterID, Lat, Long, Country info for all samples are retrieved from the SQL database
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta")
     res = dbSendQuery(db, query)
     cluster_table = dbFetch(res)
@@ -544,7 +544,7 @@ server = function(input, output, session){
   # This function is used to identify samples that appear within a given time window
   filter_samples = function(start_time, end_time){
     # Query and identify samples within given time window from SQL database
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     query = sprintf("SELECT MasterID, Long, Lat, Country FROM sample_meta WHERE CAST(DateMean AS INTEGER) <= %s AND CAST(DateMean AS INTEGER) >=%s", start_time, end_time)
     res = dbSendQuery(db, query)
     samples_to_plot = dbFetch(res)
@@ -575,7 +575,7 @@ server = function(input, output, session){
     
     # Query and retrieve appropriate SNP data with the identified samples
     # The retrieved data is reformatted and merged with cluster information
-    db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+    db = dbConnect(SQLite(), dbPath)
     sample_list = paste0(sprintf("`%s`", samples_to_plot$MasterID), collapse=",")
     
     if(twoSNPs()){
@@ -1021,7 +1021,7 @@ server = function(input, output, session){
     switch(input$exploreData,
            # If the user chooses "Samples", display "Countries" and "Time range" options 
            "Samples"={
-             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             db = dbConnect(SQLite(), dbPath)
              query = "SELECT DISTINCT Country FROM sample_meta"
              res = dbSendQuery(db, query)
              country_choices = dbFetch(res)
@@ -1043,7 +1043,7 @@ server = function(input, output, session){
            },
            # If the user chooses "SNPs", display "Chromosome" options
            "SNPs"={
-             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             db = dbConnect(SQLite(), dbPath)
              query = "SELECT DISTINCT CHR FROM SNP_meta"
              res = dbSendQuery(db, query)
              chr_choices = dbFetch(res)
@@ -1074,7 +1074,7 @@ server = function(input, output, session){
                return(NULL)
              }
              countries_query = paste("'", input$exploreCountry, "'", collapse=" OR Country==", sep="")
-             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             db = dbConnect(SQLite(), dbPath)
              query = "SELECT * FROM sample_meta"
              query = sprintf("SELECT * FROM sample_meta WHERE CAST(DateMean AS INTEGER) <= %s AND CAST(DateMean AS INTEGER) >=%s AND Country==%s", 
                              input$exploreRange[1], input$exploreRange[2], countries_query)
@@ -1085,7 +1085,7 @@ server = function(input, output, session){
                return(NULL)
              }
              chr_query = paste("'", input$exploreChr, "'", collapse=" OR CHR==", sep="")
-             db = dbConnect(SQLite(), "data/reich_v50.sqlite")
+             db = dbConnect(SQLite(), dbPath)
              query = sprintf("SELECT * FROM SNP_meta WHERE CHR==%s", chr_query)
              res = dbSendQuery(db, query)
            })
