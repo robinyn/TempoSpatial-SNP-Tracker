@@ -6,11 +6,13 @@ TempoSpatial SNP Tracker (TSST) is a tool aimed at simplifying the visualization
 
 ## 2. Web deployment
 
-The application is available at the following [link](https://robinyn.shinyapps.io/tsst/). Please note that due to the limitations of the free hosting service provided by Shinyapps.io, the performance of the web version is not great.
+The application is available at the following [link](https://robinyn.shinyapps.io/tsst/).
+
+**Note:** Due to the limitations of the free hosting service provided by Shinyapps.io, the performance of the web version is rather poor. Please allow the application to have plenty of time to render the map after changing any of the options. Downloading and running the application will result in better performance, but there may be compatibility issues.
 
 ## 3. Installation
 
-These steps are not necessary if you decide to run the web version of the application available in the link above. Please only follow these instructions if you want to run the application on your local machine.
+These steps are ***not necessary*** if you decide to run the web version of the application available in the link above. Please only follow these instructions if you want to run the application on your local machine.
 
 ### 3.1. Required packages
 
@@ -67,3 +69,8 @@ packages = c("shiny", "shinywidgets", "tidyverse", "leaflet", "leaflet.minichart
 for(package in packages){ install.packages(package) }
 ```
 
+### 3.2. Application files
+
+#### **3.2.1. Running from GitHub**
+
+R Shiny allows users to run applications hosted on GitHub directly without having to download any files. 
