@@ -15,7 +15,7 @@ library(RSQLite)
 setwd(".")
 
 # Create SQL database connection 
-dbPath = "reich_v50.sqlite"
+dbPath = "./reich_v50.sqlite"
 db = dbConnect(SQLite(), dbPath)
 
 # Query max/min dates from the database 
