@@ -23,12 +23,10 @@ def readPlink(ped_file, map_file):
             for index, line in enumerate(map):
                 SNP_list.append([line.split("\t")[1], line.split("\t")[0]])
                 SNP_index[line.split("\t")[1]] = index
-                #SNP_list[line.split("\t")[1]] = [index+1, line.split("\t")[0]]
 
             gcount.readline()
             for line in gcount:
                 SNP_list[SNP_index[line.split("\t")[1]]].extend([line.split("\t")[2], line.split("\t")[3]])
-                #SNP_list[line.split("\t")[1]].extend([line.split("\t")[2], line.split("\t")[3]])
 
             for line in ped:
                 line = line.strip()
@@ -61,10 +59,10 @@ def readPlink(ped_file, map_file):
 
     return sample_list
 
-ped_file = "/Users/robinhan/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.ped"
-map_file = "/Users/robinhan/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.map"
-gcount_file = "/Users/robinhan/Dev/school/BINP29/popgen/0_data/uncompressed/plink2.gcount"
-excel_file = "~/Dev/school/BINP29/popgen/0_data/uncompressed/DataS1.xlsx"
+ped_file = input("Directory to PED file: ")
+map_file = input("Directory to MAP file: ")
+gcount_file = input("Directory to GCOUNT file: ")
+excel_file = input("Directory to EXCEL file: ")
 
 sample_list = readPlink(ped_file, map_file)
 readExcel(excel_file, sample_list)

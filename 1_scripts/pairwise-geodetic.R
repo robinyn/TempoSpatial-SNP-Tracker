@@ -1,8 +1,8 @@
 library(tidyverse)
 library(RSQLite)
 
-make_distMatrix = function(data_matrix){
-  sample_ids = data_matrix$MasterID
+make_distMatrix = function(sample_dat){
+  sample_ids = sample_dat$MasterID
   distM = matrix(0, nrow=length(sample_ids), ncol=length(sample_ids),
                  dimnames = list(sample_ids, sample_ids))
   
@@ -46,24 +46,26 @@ geodetic_calc = function(p1, p2){
 }
 
 main = function(){
-  setwd("~/Dev/school/BINP29/popgen")
+  args = commandArgs(trailingOnly = TRUE)
+  print(args[1])
   
-  db = dbConnect(SQLite(), "0_data/popgen_SNP.sqlite")
+  db = dbConnect(SQLite(), args[1])
   res = dbSendQuery(db, "SELECT MasterID, Long, Lat FROM sample_meta")
   sample_dat = dbFetch(res)
   dbClearResult(res)
   dbDisconnect(db)
   
   distM = make_distMatrix(sample_dat)
-  
+
   distM_database = distM %>% 
     as.data.frame() %>% 
     rownames_to_column(var="id1") %>% 
     pivot_longer(!"id1", names_to = "id2", values_to = "dist")
   
-  write.table(distM_database, file="0_data/distanceMatrix.tsv", sep="\t", row.names = FALSE, quote=FALSE)
+  write.table(distM_database, file="distanceMatrix.tsv", sep="\t", row.names = FALSE, quote=FALSE)
 }
 
+main()
 
 
 
