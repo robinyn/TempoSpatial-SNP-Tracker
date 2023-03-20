@@ -20,7 +20,7 @@
     - [6.4. Generate SQL database](#64-generate-sql-database)
     - [6.5. Generate distance matrix](#65-generate-distance-matrix)
     - [6.6. Get country centroid coordinates](#66-get-country-centroid-coordinates)
-    - [6.7. Import distance matrix to database](#67-import-distance-matrix-to-database)
+    - [6.7. Import distance matrix/country centroids to database](#67-import-distance-matrixcountry-centroids-to-database)
     - [6.8. Edit global.R](#68-edit-globalr)
 
 ## 1. Introduction
@@ -243,7 +243,7 @@ Running this script requires the following additional package from the ones inst
 Rscript giscoR_getCountry.R
 ```
 
-### 6.7. Import distance matrix to database
+### 6.7. Import distance matrix/country centroids to database
 
 Use SQLite again to import the two new TSV files (***country_cords.tsv***, ***distanceMatrix.tsv***) into the database. Please make sure the table names are the same as those provided here.
 
