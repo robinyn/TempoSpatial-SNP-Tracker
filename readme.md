@@ -1,46 +1,69 @@
-# Population Genetics Project - Tracing the allelic changes of SNPs over time and space
+# TempoSpatial SNP Tracker
 
-In this project, an R-shiny application that allows users to input plink files and the corresponding time dataset in order to visualize the allelic changes of selected SNPs over time and space on a map.
+## 1. Introduction
 
-## 1. Development environment
+TempoSpatial SNP Tracker (TSST) is a tool aimed at simplifying the visualization of large SNP datasets with both temporal and geospatial components. TSST will produce an interactive map with a timeline and plots of their choice visualizing the loaded SNP data, allowing users to easily flip through the entire time range of their data. With an intuitive and modern UI, users can flexibily subset and cluster their data. Extensive graphical options allow users to fully customize the resulting map to their needs. TSST is also capable of producing summary plots displaying the global allele frequencies/counts for the chosen SNPs over time. Finally, the data explorer allows users to easily search and examine the raw data.
 
-The majority of the development for this app was done on an M1 mac but certain parts of the analysis were performed on the course server (GNU Linux x86_64). Softwares and analysis run on the server are denoted by an asterix in the rest of the readme file. The following softwares were used:
+## 2. Web deployment
 
-    - Plink (version 1.90b7 64-bit)*
-    - R
+The application is available at the following [link](https://robinyn.shinyapps.io/tsst/). Please note that due to the limitations of the free hosting service provided by Shinyapps.io, the performance of the web version is not great.
 
-Plink was downloaded from the official [website](https://www.cog-genomics.org/plink/1.9/) and added to the PATH.
-## 2. Data
+## 3. Installation
 
-Four data files were provided:
+These steps are not necessary if you decide to run the web version of the application available in the link above. Please only follow these instructions if you want to run the application on your local machine.
 
-    - DataS1.bed
-    - DataS1.bim
-    - DataS1.fam
-    - DataS1.xlsx (Eurasian - Dataset_tims.xlsx)
+### 3.1. Required packages
 
-The name of the excel file "Eurasian-Dataset_tims" was changed to DataS1.xlsx for consistency with the other data files.
+The application is written in R (version 4.2.1) and the following packages are required:
 
-### 2.1. Data preprocessing
+* R Shiny (v. 1.7.4)
+* Shinywidgets (v. 0.7.6)
+* Tidyverse (v. 1.3.2)
+* R Leaflet (v. 2.1.1)
+* Leaflet.minicharts (v. 0.6.2)
+* RSQLite (v. 2.3.0)
+* RColorBrewer (v. 1.1_3)
+* Plotly (v. 4.10.1)
 
-#### 2.1.1. Excel
+#### **3.1.1. Conda**
 
-For the purposes of this project, the majority of the columns in the excel file was not needed. Therefore, the following columns were removed:
-
-    - Ancient/Modern components
-    - Age at death estimage
-    - Converge on autosomal targets
-    - SNPs hit on autosomal targets
-    - Mean length of shotgun sequences
-    - Family ID and position within family
-    - Y/mtDNA data
-
-#### 2.1.2. Plink*
-
-Due to compatibility issues with the Plink software, this part of the preprocessing had to be conducted on the course server. In order to extract the SNP data from the three plink files (DataS1.bed/.bim/.fam), the files were uploaded to the server and the following commands were used in the same directory as the data files:
+The recommended method of installing all of the required packages is through Conda (version 23.1.0). The following code can be run verbatim on the terminal/powershell.
 
 ```shell
-plink --bfile DataS1 --recode compound-genotypes --out DataS1
+# Create a conda environment with all of the necessary packages
+conda create -n TSST -c bioconda -c conda-forge \
+r-base=4.2.1                \
+r-shiny=1.7.4               \
+r-shinywidgets=0.7.6        \
+r-tidyverse=1.3.2           \
+r-leaflet=2.1.1             \
+r-leaflet.minicharts=0.6.2  \
+r-rsqlite=2.3.0             \
+r-rcolorbrewer=1.1_3        \
+r-plotly=4.10.1
+
+# Activate the environment created above
+conda activate TSST
+
+# Run R console
+R
 ```
 
-The resulting uncompressed plink files were downloaded to the local machine.
+Should any of the packages fail to install through Conda, try installing through the **R console** using the following line:
+
+```R
+install.packages("Name_of_the_package")
+```
+
+#### **3.1.2. R console**
+
+The following commands can be used in R console/R studio to install the required packages manually.
+
+```R
+# Create a vector of packages to install
+packages = c("shiny", "shinywidgets", "tidyverse", "leaflet", "leaflet.minicharts", "rsqlite", "rcolorbrewer", "plotly")
+
+# Loop over and install required packages
+for(package in packages){ install.packages(package) }
+```
+
