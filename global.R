@@ -12,7 +12,7 @@
 library(RSQLite)
 
 # Set working directory to the root folder
-setwd("../")
+setwd(".")
 
 # Create SQL database connection 
 db = dbConnect(SQLite(), "data/reich_v50.sqlite")

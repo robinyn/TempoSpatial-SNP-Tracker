@@ -5,7 +5,6 @@
 # Description: This is the server-side script for the R-shiny application "TempoSpatial SNP Tracker"
 # Dependencies: This script requires the following packages:
 #               shiny (version 1.7.4)
-#               shinythemes (version 1.2.0)
 #               tidyverse (version 1.3.2)
 #               leaflet (version 2.1.1)
 #               leaflet.minicharts (version 0.6.2)
@@ -24,7 +23,7 @@ library(RColorBrewer)
 library(plotly)
 
 # Set working directory to root folder
-setwd("../")
+setwd(".")
 
 # Main server function
 server = function(input, output, session){
@@ -676,6 +675,7 @@ server = function(input, output, session){
       
       # Calculate total number of individuals for SNP1 and SNP2
       dat = dat %>% 
+        ungroup() %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1")))) %>% 
         mutate(SNP2_total=rowSums(select(.,contains("SNP2"))))
       
@@ -745,6 +745,7 @@ server = function(input, output, session){
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
       
       dat = dat %>% 
+        ungroup() %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1"))))
       SNP1_tab = dat %>% 
         select(contains("SNP1"))
@@ -802,15 +803,25 @@ server = function(input, output, session){
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
       SNP2_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP2"])
       
+      print("1")
+      print(dat)
+      
       dat = dat %>% 
+        ungroup() %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1")))) %>% 
         mutate(SNP2_total=rowSums(select(.,contains("SNP2"))))
+      
+      print("2")
+      print(dat)
       
       SNP1_tab = dat %>% 
         select(contains("SNP1"))
       
       SNP2_tab = dat %>% 
         select(contains("SNP2"))
+      
+      print("3")
+      print(SNP1_tab)
       
       if(length(SNP1_alleles)==0){
         SNP1_tab = SNP1_tab %>% 
@@ -871,6 +882,7 @@ server = function(input, output, session){
       SNP1_alleles = uniqchars(alleles$Genotype[alleles$SNP=="SNP1"])
       
       dat = dat %>% 
+        ungroup() %>% 
         mutate(SNP1_total=rowSums(select(.,contains("SNP1"))))
       SNP1_tab = dat %>% 
         select(contains("SNP1"))
