@@ -71,6 +71,38 @@ for(package in packages){ install.packages(package) }
 
 ### 3.2. Application files
 
-#### **3.2.1. Running from GitHub**
+While in the future, we wish to support running TSST directly from this GitHub repository, due to the large filesize of the SQL database, it is not possible to do so at the moment. In order to run this application, you have to download the following files from this repo:
 
-R Shiny allows users to run applications hosted on GitHub directly without having to download any files. 
+* **global.R**
+* **server.R**
+* **ui.R**
+* **styles.css**
+* data/**reich_v50.sqlite**
+
+You can put the downloaded files into the root directory where you want the application to run from, but the **reich_v50.sqlite** file must be within a folder named **data** inside the root directory. The resulting folder structure must look like the following:
+
+- root_directory
+  - data
+    - reich_v50.sqlite
+  - global.R
+  - server.R
+  - ui.R
+  - styles.css
+
+## 4. Running the application
+
+Once all of the necessary files and packages have been downloaded and installed, the following line can be run in the R console to start the program.
+
+```R
+# Replace the example path with the actual path name to the root directory for the app
+
+shiny::runApp("Absolute/Path/To/Root/Directory", launch.browser=FALSE)
+```
+
+If the following lines appear after running the command and no new window opens, copy the address and manually open the application in your browser of choice.
+
+```shell
+Listening on http://127.0.0.1:3964
+Browsing http://127.0.0.1:3964
+```
+
