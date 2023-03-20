@@ -31,6 +31,8 @@ TempoSpatial SNP Tracker (TSST) is a tool aimed at simplifying the visualization
 
 The application is available at the following [link](https://robinyn.shinyapps.io/tsst/).
 
+The source code is available at this [GitHub](https://github.com/robinyn/TempoSpatial-SNP-Tracker) repository.
+
 **Note:** Due to the limitations of the free hosting service provided by Shinyapps.io, the performance of the web version is rather poor. Please allow the application to have plenty of time to render the map after changing any of the options. Downloading and running the application will result in better performance, but there may be compatibility issues.
 
 ## 3. Installation
