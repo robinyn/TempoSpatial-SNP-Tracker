@@ -245,6 +245,10 @@ Running this script requires the following additional package from the ones inst
 Rscript giscoR_getCountry.R
 ```
 
+If you choose to generate your own files, please make sure the country names in the TSV file matches the country names in the sample metadata file. Some of differences we encountered were:
+- Czechia = Czech Republic
+- Russian Federation = Russia
+
 ### 6.7. Import distance matrix/country centroids to database
 
 Use SQLite again to import the two new TSV files (***country_cords.tsv***, ***distanceMatrix.tsv***) into the database. Please make sure the table names are the same as those provided here.
